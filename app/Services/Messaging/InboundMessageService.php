@@ -159,13 +159,15 @@ class InboundMessageService
             return $contact;
         }
 
+        $profileName = $data['profile_name'] ?? null;
+
         return Contact::query()->create([
             'workspace_id' => $account->workspace_id,
             'whatsapp_account_id' => $account->id,
             'wa_id' => $data['wa_id'],
             'phone_number' => $phone,
-            'display_name' => $data['profile_name'] ?? null,
-            'first_name' => $data['profile_name'] ? explode(' ', trim($data['profile_name']))[0] : null,
+            'display_name' => $profileName,
+            'first_name' => $profileName ? explode(' ', trim($profileName))[0] : null,
         ]);
     }
 
