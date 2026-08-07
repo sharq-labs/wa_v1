@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: whats_v1_test
+          MYSQL_ROOT_PASSWORD: secret
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -psecret"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl, pdo_mysql, redis, pcntl, posix, curl
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Install frontend dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Configure application
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          {
+            echo 'APP_ENV=testing'
+            echo 'DB_HOST=127.0.0.1'
+            echo 'DB_PORT=3306'
+            echo 'DB_DATABASE=whats_v1_test'
+            echo 'DB_USERNAME=root'
+            echo 'DB_PASSWORD=secret'
+            echo 'REDIS_HOST=127.0.0.1'
+            echo 'QUEUE_CONNECTION=sync'
+            echo 'CACHE_STORE=array'
+            echo 'WHATSAPP_PROVIDER=fake'
+          } >> .env
+          php artisan migrate --force
+
+      - name: Backend tests
+        run: php artisan test
+
+      - name: PHP formatting
+        run: vendor/bin/pint --test
+
+      - name: Frontend lint
+        run: npm run lint
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Frontend tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
