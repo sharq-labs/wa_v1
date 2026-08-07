@@ -28,15 +28,12 @@ class ContactController extends ApiController
         if ($search = $request->query('search')) {
             $query->search($search);
         }
-
         if ($status = $request->query('status')) {
             $query->where('status', $status);
         }
-
         if ($tagId = $request->query('tag_id')) {
             $query->whereHas('tags', fn ($q) => $q->where('tags.id', $tagId));
         }
-
         if ($accountId = $request->query('whatsapp_account_id')) {
             $query->where('whatsapp_account_id', $accountId);
         }
@@ -69,9 +66,7 @@ class ContactController extends ApiController
         }
 
         $data = $this->validateContact($request, $workspace);
-
         $contact = Contact::query()->create($data + ['workspace_id' => $workspace->id]);
-
         $this->syncCustomFields($request, $workspace, $contact);
 
         return $this->success(new ContactResource($contact->load(['tags', 'customFieldValues.customField'])), __('Contact created.'), 201);
@@ -93,7 +88,6 @@ class ContactController extends ApiController
         abort_unless($contact->workspace_id === $workspace->id, 404);
 
         $data = $this->validateContact($request, $workspace, $contact);
-
         $contact->update($data);
         $this->syncCustomFields($request, $workspace, $contact);
 
@@ -121,7 +115,6 @@ class ContactController extends ApiController
         $data = $request->validate([
             'status' => ['required', 'in:active,archived,blocked'],
         ]);
-
         $contact->update(['status' => $data['status']]);
 
         return $this->success(new ContactResource($contact), __('Contact status updated.'));
@@ -146,7 +139,6 @@ class ContactController extends ApiController
     public function export(Request $request, Workspace $workspace): StreamedResponse
     {
         Gate::authorize('manageContacts', $workspace);
-
         $fields = CustomField::query()->forWorkspace($workspace)->orderBy('id')->get();
 
         return response()->streamDownload(function () use ($workspace, $fields) {
@@ -160,7 +152,7 @@ class ContactController extends ApiController
                 ->with(['tags', 'customFieldValues.customField'])
                 ->chunk(500, function ($contacts) use ($out, $fields) {
                     foreach ($contacts as $contact) {
-                        fputcsv($out, array_merge([
+                        $row = array_merge([
                             $contact->id,
                             $contact->phone_number,
                             $contact->first_name,
@@ -171,12 +163,25 @@ class ContactController extends ApiController
                             $contact->status,
                             $contact->tags->pluck('name')->implode('|'),
                             $contact->created_at?->toDateTimeString(),
-                        ], $fields->map(fn ($f) => $contact->customFieldValue($f->key))->all()));
+                        ], $fields->map(fn ($f) => $contact->customFieldValue($f->key))->all());
+
+                        fputcsv($out, array_map(fn ($value) => $this->csvSafe($value), $row));
                     }
                 });
 
             fclose($out);
-        }, 'contacts.csv', ['Content-Type' => 'text/csv']);
+        }, 'contacts.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    protected function csvSafe(mixed $value): mixed
+    {
+        if (! is_string($value) || $value === '') {
+            return $value;
+        }
+
+        // Spreadsheet applications may execute cells starting with these
+        // characters as formulas. Prefix with an apostrophe to force text.
+        return preg_match('/^[=+\-@]/u', ltrim($value)) === 1 ? "'".$value : $value;
     }
 
     protected function validateContact(Request $request, Workspace $workspace, ?Contact $contact = null): array
@@ -204,13 +209,11 @@ class ContactController extends ApiController
     protected function syncCustomFields(Request $request, Workspace $workspace, Contact $contact): void
     {
         $values = $request->input('custom_fields');
-
         if (! is_array($values)) {
             return;
         }
 
         $fields = CustomField::query()->forWorkspace($workspace)->get()->keyBy('key');
-
         foreach ($values as $key => $value) {
             if ($fields->has($key)) {
                 $contact->setCustomFieldValue($fields[$key], $value === null ? null : (string) $value);
