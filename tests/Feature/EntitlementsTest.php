@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\WorkspaceRole;
 use App\Models\Automation;
 use App\Models\Contact;
 use App\Models\Plan;
@@ -21,13 +22,35 @@ function subscribeTo(array $ctx, array $features): void
 }
 
 it('enforces the WhatsApp number limit', function () {
-    $ctx = createWorkspaceContext(); // already has 1 account
+    $ctx = createWorkspaceContext();
     subscribeTo($ctx, ['whatsapp_numbers' => '1']);
 
     $this->actingAs($ctx['user'])
         ->postJson("/api/workspaces/{$ctx['workspace']->id}/whatsapp-accounts/connect-fake")
         ->assertForbidden()
         ->assertJsonPath('success', false);
+});
+
+it('enforces the agent seat limit when inviting inbox users', function () {
+    $ctx = createWorkspaceContext();
+    subscribeTo($ctx, ['agents' => '2']);
+    addAgent($ctx['workspace'], 'Second Seat', WorkspaceRole::Admin);
+
+    $this->actingAs($ctx['user'])
+        ->postJson("/api/workspaces/{$ctx['workspace']->id}/invitations", [
+            'email' => 'third-agent@example.com',
+            'role' => 'agent',
+        ])
+        ->assertForbidden()
+        ->assertJsonPath('success', false);
+
+    // Viewer access does not consume an inbox/agent seat.
+    $this->actingAs($ctx['user'])
+        ->postJson("/api/workspaces/{$ctx['workspace']->id}/invitations", [
+            'email' => 'viewer@example.com',
+            'role' => 'viewer',
+        ])
+        ->assertCreated();
 });
 
 it('enforces the contact limit with a clear upgrade message', function () {
