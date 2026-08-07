@@ -9,6 +9,7 @@ use App\Enums\MessageSenderType;
 use App\Enums\MessageStatus;
 use App\Models\CampaignRecipient;
 use App\Models\Conversation;
+use App\Services\Campaigns\CampaignService;
 use App\Services\Messaging\MessageService;
 use App\Services\Templates\TemplateRenderer;
 use Illuminate\Bus\Queueable;
@@ -28,7 +29,7 @@ class SendCampaignMessage implements ShouldQueue
         $this->onQueue('campaigns');
     }
 
-    public function handle(MessageService $messages, TemplateRenderer $renderer): void
+    public function handle(MessageService $messages, TemplateRenderer $renderer, CampaignService $campaigns): void
     {
         // Pause/resume or duplicate fan-out jobs can target the same recipient.
         // Claim the recipient once before creating an outbound message row.
@@ -74,8 +75,16 @@ class SendCampaignMessage implements ShouldQueue
             return;
         }
 
-        if ($contact->opt_in_status === 'opted_out') {
-            $recipient->update(['status' => 'skipped', 'error_message' => 'Contact opted out.']);
+        // Defence in depth: eligibility is checked while the audience is
+        // materialised and again immediately before the provider call. A user
+        // who opts out after scheduling must never receive the campaign.
+        if (! $campaigns->isContactEligible($campaign, $contact)) {
+            $recipient->update([
+                'status' => 'skipped',
+                'error_message' => $contact->opt_in_status === 'opted_out'
+                    ? 'Contact opted out.'
+                    : 'No WhatsApp opt-in outside the 24-hour window.',
+            ]);
             $this->completeIfFinished($campaign);
 
             return;
