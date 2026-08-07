@@ -8,6 +8,7 @@ use App\Enums\MessageDirection;
 use App\Enums\MessageSenderType;
 use App\Enums\MessageStatus;
 use App\Enums\MessageType;
+use App\Events\ContactUpdated;
 use App\Events\ConversationUpdated;
 use App\Events\NewMessage;
 use App\Http\Resources\MessageResource;
@@ -34,9 +35,10 @@ class InboundMessageService
         }
 
         try {
-            [$message, $contact, $conversation, $isNewContact] = DB::transaction(function () use ($account, $data) {
+            [$message, $contact, $conversation, $isNewContact, $consentChanged] = DB::transaction(function () use ($account, $data) {
                 $contact = $this->resolveContact($account, $data);
                 $isNewContact = $contact->wasRecentlyCreated;
+                $consentChanged = $this->applyConsentKeyword($contact, $data);
                 $conversation = $this->resolveConversation($account, $contact);
 
                 $message = Message::query()->create([
@@ -71,12 +73,19 @@ class InboundMessageService
                     'last_message_at' => $now,
                 ])->save();
 
-                return [$message, $contact, $conversation, $isNewContact];
+                return [$message, $contact, $conversation, $isNewContact, $consentChanged];
             });
         } catch (UniqueConstraintViolationException) {
             // Database uniqueness is the final line of defence when two workers
             // race past the optimistic lookup above.
             return null;
+        }
+
+        if ($consentChanged) {
+            broadcast(new ContactUpdated($account->workspace_id, [
+                'contact_id' => $contact->id,
+                'opt_in_status' => $contact->opt_in_status,
+            ]));
         }
 
         broadcast(new NewMessage($account->workspace_id, [
@@ -94,6 +103,42 @@ class InboundMessageService
         ProcessInboundMessageAutomation::dispatch($message->id, $isNewContact)->onQueue('automations');
 
         return $message;
+    }
+
+    protected function applyConsentKeyword(Contact $contact, array $data): bool
+    {
+        if (($data['type'] ?? null) !== 'text' || ! is_string($data['text'] ?? null)) {
+            return false;
+        }
+
+        $keyword = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $data['text'])));
+        $optIn = config('whatsapp.opt_in_keywords', []);
+        $optOut = config('whatsapp.opt_out_keywords', []);
+
+        if (in_array($keyword, $optOut, true)) {
+            $changed = $contact->opt_in_status !== 'opted_out';
+            $contact->forceFill([
+                'opt_in_status' => 'opted_out',
+                'opt_out_at' => now(),
+                'consent_source' => 'whatsapp_keyword',
+            ])->save();
+
+            return $changed;
+        }
+
+        if (in_array($keyword, $optIn, true)) {
+            $changed = $contact->opt_in_status !== 'opted_in';
+            $contact->forceFill([
+                'opt_in_status' => 'opted_in',
+                'opt_in_at' => now(),
+                'opt_out_at' => null,
+                'consent_source' => 'whatsapp_keyword',
+            ])->save();
+
+            return $changed;
+        }
+
+        return false;
     }
 
     protected function resolveContact(WhatsAppAccount $account, array $data): Contact
