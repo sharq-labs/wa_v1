@@ -257,6 +257,7 @@ class MetaWhatsAppProvider implements MessagingProviderInterface
             )->successful();
         } catch (\Throwable $e) {
             Log::warning('Meta template delete failed', ['account' => $account->id, 'error' => $e->getMessage()]);
+
             return false;
         }
     }

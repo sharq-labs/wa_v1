@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 class AssignmentService
 {
     public const STRATEGY_ROUND_ROBIN = 'round_robin';
+
     public const STRATEGY_LEAST_ACTIVE = 'least_active';
 
     public function assignToUser(Conversation $conversation, User $user, ?AgentTeam $team = null): Conversation

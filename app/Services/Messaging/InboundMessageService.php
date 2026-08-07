@@ -110,6 +110,7 @@ class InboundMessageService
             if (! $contact->wa_id) {
                 $contact->forceFill(['wa_id' => $data['wa_id']])->save();
             }
+
             return $contact;
         }
 

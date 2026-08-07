@@ -75,6 +75,7 @@ class ProcessInboundMessageAutomation implements ShouldQueue
         $matches = $matcher->match($workspace, $message, $this->isNewContact);
         if ($matches->isEmpty()) {
             $this->handleFallback($workspace, $message, $engine, $messages);
+
             return;
         }
 
@@ -96,6 +97,7 @@ class ProcessInboundMessageAutomation implements ShouldQueue
                     'sync' => true,
                 ]);
             }
+
             return;
         }
 

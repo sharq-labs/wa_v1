@@ -53,6 +53,7 @@ class AutomationRunStep extends Model
 
             if (in_array($normalized, $sensitive, true)) {
                 $value[$key] = '[REDACTED]';
+
                 continue;
             }
 

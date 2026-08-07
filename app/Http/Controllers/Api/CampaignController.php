@@ -126,6 +126,7 @@ class CampaignController extends ApiController
             return $this->error(__('Only processing campaigns can be paused.'));
         }
         $campaign->update(['status' => CampaignStatus::Paused]);
+
         return $this->success($campaign, __('Campaign paused.'));
     }
 
@@ -137,6 +138,7 @@ class CampaignController extends ApiController
             return $this->error(__('Only paused campaigns can be resumed.'));
         }
         $service->resume($campaign);
+
         return $this->success($campaign->fresh(), __('Campaign resumed.'));
     }
 
@@ -148,6 +150,7 @@ class CampaignController extends ApiController
             return $this->error(__('This campaign is already finished.'));
         }
         $service->cancel($campaign);
+
         return $this->success($campaign->fresh(), __('Campaign cancelled.'));
     }
 

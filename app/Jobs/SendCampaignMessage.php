@@ -52,11 +52,13 @@ class SendCampaignMessage implements ShouldQueue
         $campaign = $recipient->campaign;
         if (! $campaign || $campaign->status === CampaignStatus::Cancelled) {
             $recipient->update(['status' => 'skipped']);
+
             return;
         }
 
         if ($campaign->status === CampaignStatus::Paused) {
             $recipient->update(['status' => 'pending']);
+
             return;
         }
 
@@ -68,12 +70,14 @@ class SendCampaignMessage implements ShouldQueue
             $recipient->update(['status' => 'failed', 'error_message' => 'Missing contact, invalid account binding, or unapproved template.']);
             $campaign->increment('failed_count');
             $this->completeIfFinished($campaign);
+
             return;
         }
 
         if ($contact->opt_in_status === 'opted_out') {
             $recipient->update(['status' => 'skipped', 'error_message' => 'Contact opted out.']);
             $this->completeIfFinished($campaign);
+
             return;
         }
 
@@ -104,6 +108,7 @@ class SendCampaignMessage implements ShouldQueue
             $campaign->increment('failed_count');
             report($e);
             $this->completeIfFinished($campaign);
+
             return;
         }
 

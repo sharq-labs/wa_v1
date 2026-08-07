@@ -82,6 +82,7 @@ class TemplateController extends ApiController
             $remote = $manager->forAccount($account)->createTemplate($account, $data);
         } catch (\Throwable $e) {
             report($e);
+
             return $this->error(__('Meta rejected the template submission: :message', ['message' => $e->getMessage()]), [], 422);
         }
 

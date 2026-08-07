@@ -34,13 +34,27 @@ class ConversationController extends ApiController
             default => null,
         };
 
-        if ($status = $request->query('status')) $query->where('status', $status);
-        if ($request->boolean('unread')) $query->where('unread_count', '>', 0);
-        if ($userId = $request->query('assigned_user_id')) $query->where('assigned_user_id', $userId);
-        if ($teamId = $request->query('assigned_team_id')) $query->where('assigned_team_id', $teamId);
-        if ($accountId = $request->query('whatsapp_account_id')) $query->where('whatsapp_account_id', $accountId);
-        if ($tagId = $request->query('tag_id')) $query->whereHas('contact.tags', fn ($q) => $q->where('tags.id', $tagId));
-        if ($search = $request->query('search')) $query->whereHas('contact', fn ($q) => $q->search($search));
+        if ($status = $request->query('status')) {
+            $query->where('status', $status);
+        }
+        if ($request->boolean('unread')) {
+            $query->where('unread_count', '>', 0);
+        }
+        if ($userId = $request->query('assigned_user_id')) {
+            $query->where('assigned_user_id', $userId);
+        }
+        if ($teamId = $request->query('assigned_team_id')) {
+            $query->where('assigned_team_id', $teamId);
+        }
+        if ($accountId = $request->query('whatsapp_account_id')) {
+            $query->where('whatsapp_account_id', $accountId);
+        }
+        if ($tagId = $request->query('tag_id')) {
+            $query->whereHas('contact.tags', fn ($q) => $q->where('tags.id', $tagId));
+        }
+        if ($search = $request->query('search')) {
+            $query->whereHas('contact', fn ($q) => $q->search($search));
+        }
 
         $conversations = $query->orderByDesc('last_message_at')
             ->paginate(min((int) $request->query('per_page', 25), 100));
@@ -116,6 +130,7 @@ class ConversationController extends ApiController
         Gate::authorize('useInbox', $workspace);
         abort_unless($conversation->workspace_id === $workspace->id, 404);
         $assignment->unassign($conversation);
+
         return $this->success(new ConversationResource($conversation->fresh(['contact'])), __('Conversation unassigned.'));
     }
 
@@ -125,6 +140,7 @@ class ConversationController extends ApiController
         abort_unless($conversation->workspace_id === $workspace->id, 404);
         $data = $request->validate(['status' => ['required', 'in:open,pending,closed']]);
         $service->setStatus($conversation, ConversationStatus::from($data['status']));
+
         return $this->success(new ConversationResource($conversation->fresh(['contact'])), __('Conversation updated.'));
     }
 
@@ -133,6 +149,7 @@ class ConversationController extends ApiController
         Gate::authorize('useInbox', $workspace);
         abort_unless($conversation->workspace_id === $workspace->id, 404);
         $service->pauseBot($conversation);
+
         return $this->success(new ConversationResource($conversation->fresh(['contact'])), __('Bot paused for this conversation.'));
     }
 
@@ -141,6 +158,7 @@ class ConversationController extends ApiController
         Gate::authorize('useInbox', $workspace);
         abort_unless($conversation->workspace_id === $workspace->id, 404);
         $service->resumeBot($conversation);
+
         return $this->success(new ConversationResource($conversation->fresh(['contact'])), __('Bot resumed for this conversation.'));
     }
 
@@ -149,6 +167,7 @@ class ConversationController extends ApiController
         Gate::authorize('useInbox', $workspace);
         abort_unless($conversation->workspace_id === $workspace->id, 404);
         $service->markRead($conversation);
+
         return $this->success(null, __('Marked as read.'));
     }
 

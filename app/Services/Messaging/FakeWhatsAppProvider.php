@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 class FakeWhatsAppProvider implements MessagingProviderInterface
 {
     public static array $sent = [];
+
     public static bool $failNextSend = false;
 
     public static function reset(): void
@@ -22,6 +23,7 @@ class FakeWhatsAppProvider implements MessagingProviderInterface
     {
         if (static::$failNextSend) {
             static::$failNextSend = false;
+
             return ProviderResult::failed('fake_error', 'Simulated provider failure.');
         }
 

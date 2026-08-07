@@ -54,6 +54,7 @@ class MetaEmbeddedSignupController extends ApiController
 
         if (! $tokenResponse->successful() || ! $tokenResponse->json('access_token')) {
             Log::warning('Embedded signup token exchange failed', ['status' => $tokenResponse->status()]);
+
             return $this->error(__('Could not complete WhatsApp connection. Please try again.'), [], 502);
         }
 
@@ -89,6 +90,7 @@ class MetaEmbeddedSignupController extends ApiController
                 'waba_id' => $wabaId,
                 'status' => $subscribeResponse->status(),
             ]);
+
             return $this->error(__('WhatsApp was authorized but webhook subscription failed. The account was not connected.'), [], 502);
         }
 

@@ -42,6 +42,7 @@ class FlowValidator
 
         $triggers = array_values(array_filter($nodes, function (array $n) {
             $type = NodeType::tryFrom($n['type'] ?? '');
+
             return $type?->isTrigger() ?? false;
         }));
 
@@ -64,6 +65,7 @@ class FlowValidator
             $type = NodeType::tryFrom($node['type'] ?? '');
             if (! $type) {
                 $errors[] = ['node_id' => $node['id'] ?? null, 'message' => 'Unknown node type ['.($node['type'] ?? '').'].'];
+
                 continue;
             }
 
@@ -264,6 +266,7 @@ class FlowValidator
                         return null;
                     }
                 }
+
                 return $nodeId;
             }
 
