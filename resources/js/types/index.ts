@@ -77,6 +77,9 @@ export interface Contact {
     profile_picture: string | null;
     status: string;
     opt_in_status: string;
+    opt_in_at: string | null;
+    opt_out_at: string | null;
+    consent_source: string | null;
     whatsapp_account_id: number | null;
     last_seen_at: string | null;
     last_message_at: string | null;
@@ -243,9 +246,28 @@ export interface Campaign {
     delivered_count: number;
     read_count: number;
     failed_count: number;
-    template?: { id: number; name: string; language: string };
+    template?: { id: number; name: string; language: string; category?: string };
     whatsapp_account?: { id: number; display_phone_number: string | null };
     created_at: string;
+}
+
+export interface CampaignAudiencePreview {
+    matching: number;
+    eligible: number;
+    active_window: number;
+    outside_window: number;
+    opted_in: number;
+    blocked_opt_out: number;
+    blocked_no_consent: number;
+    service_window_hours: number;
+    sample: { id: number; full_name: string; phone_number: string; opt_in_status: string }[];
+}
+
+export interface CampaignAnalytics {
+    delivery_rate: number;
+    read_rate: number;
+    failure_rate: number;
+    suppressed_count: number;
 }
 
 export interface Segment {
