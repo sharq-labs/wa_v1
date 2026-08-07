@@ -7,6 +7,7 @@ use App\Models\Workspace;
 use App\Services\AuditLogger;
 use App\Services\Billing\BillingProviderInterface;
 use App\Services\Billing\EntitlementsService;
+use App\Services\Billing\ManualBillingProvider;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -23,10 +24,6 @@ class BillingController extends ApiController
         );
     }
 
-    /**
-     * Billing overview. Platform subscription and Meta WhatsApp usage are
-     * presented as two distinct financial concepts — never merged.
-     */
     public function summary(Request $request, Workspace $workspace, EntitlementsService $entitlements): JsonResponse
     {
         Gate::authorize('manageBilling', $workspace);
@@ -36,7 +33,6 @@ class BillingController extends ApiController
             'meta_usage' => [
                 'note' => __('WhatsApp conversation charges are billed separately by Meta according to Meta pricing. They are not part of your platform subscription.'),
                 'billing_owner' => 'meta',
-                // Room for future Meta usage reporting via the Graph API.
                 'available' => false,
             ],
         ]);
@@ -46,16 +42,28 @@ class BillingController extends ApiController
     {
         Gate::authorize('manageBilling', $workspace);
 
+        if ($billing instanceof ManualBillingProvider
+            && app()->environment('production')
+            && ! config('billing.allow_manual_self_service', false)) {
+            return $this->error(
+                __('Self-service plan changes are disabled until a payment provider is configured.'),
+                [],
+                503,
+            );
+        }
+
         $data = $request->validate([
             'plan_id' => ['required', 'integer', 'exists:plans,id'],
             'billing_cycle' => ['sometimes', 'in:monthly,yearly'],
         ]);
 
         $plan = Plan::query()->where('is_active', true)->findOrFail($data['plan_id']);
-
         $subscription = $billing->subscribe($workspace, $plan, $data['billing_cycle'] ?? 'monthly');
 
-        $audit->log('subscription.change', $workspace, $request->user(), $subscription, ['plan' => $plan->slug]);
+        $audit->log('subscription.change', $workspace, $request->user(), $subscription, [
+            'plan' => $plan->slug,
+            'provider' => $billing->name(),
+        ]);
 
         return $this->success($subscription->load('plan.features'), __('Subscription updated.'));
     }
@@ -65,13 +73,11 @@ class BillingController extends ApiController
         Gate::authorize('manageBilling', $workspace);
 
         $subscription = $workspace->subscription;
-
         if (! $subscription || ! $subscription->isActive()) {
             return $this->error(__('No active subscription to cancel.'));
         }
 
         $billing->cancel($subscription);
-
         $audit->log('subscription.cancel', $workspace, $request->user(), $subscription);
 
         return $this->success($subscription->fresh(), __('Subscription cancelled.'));
