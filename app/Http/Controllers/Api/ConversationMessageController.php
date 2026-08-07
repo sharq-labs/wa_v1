@@ -15,6 +15,8 @@ use App\Services\Templates\TemplateRenderer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class ConversationMessageController extends ApiController
 {
@@ -46,7 +48,12 @@ class ConversationMessageController extends ApiController
 
         $data = $request->validate([
             'text' => ['required', 'string', 'max:4096'],
-            'reply_to' => ['nullable', 'integer'],
+            'reply_to' => [
+                'nullable', 'integer',
+                Rule::exists('messages', 'id')->where(fn ($q) => $q
+                    ->where('workspace_id', $workspace->id)
+                    ->where('conversation_id', $conversation->id)),
+            ],
         ]);
 
         if (! $eligibility->canSendFreeForm($conversation)) {
@@ -89,8 +96,9 @@ class ConversationMessageController extends ApiController
 
         $file = $request->file('file');
         $mime = $file->getMimeType();
-        $path = $file->store("media/{$workspace->id}", 'public');
-        $url = url('/storage/'.$path);
+        $disk = (string) config('whatsapp.media_disk', 'public');
+        $path = $file->store("media/{$workspace->id}", $disk);
+        $url = Storage::disk($disk)->url($path);
 
         $type = match (true) {
             str_starts_with($mime, 'image/') => MessageType::Image,
@@ -121,6 +129,7 @@ class ConversationMessageController extends ApiController
 
         $template = WhatsAppTemplate::query()
             ->forWorkspace($workspace)
+            ->where('whatsapp_account_id', $conversation->whatsapp_account_id)
             ->findOrFail($data['template_id']);
 
         if (! $template->isApproved()) {
