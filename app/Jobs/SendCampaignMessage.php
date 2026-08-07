@@ -21,9 +21,7 @@ class SendCampaignMessage implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 3;
-
-    public array $backoff = [10, 60, 300];
+    public int $tries = 1;
 
     public function __construct(public readonly int $recipientId)
     {
@@ -32,42 +30,50 @@ class SendCampaignMessage implements ShouldQueue
 
     public function handle(MessageService $messages, TemplateRenderer $renderer): void
     {
+        // Pause/resume or duplicate fan-out jobs can target the same recipient.
+        // Claim the recipient once before creating an outbound message row.
+        $claimed = CampaignRecipient::query()
+            ->whereKey($this->recipientId)
+            ->where('status', 'pending')
+            ->update(['status' => 'processing']);
+
+        if ($claimed !== 1) {
+            return;
+        }
+
         $recipient = CampaignRecipient::query()
             ->with(['campaign.template', 'campaign.whatsappAccount', 'contact'])
             ->find($this->recipientId);
 
-        if (! $recipient || $recipient->status !== 'pending') {
+        if (! $recipient) {
             return;
         }
 
         $campaign = $recipient->campaign;
-
         if (! $campaign || $campaign->status === CampaignStatus::Cancelled) {
             $recipient->update(['status' => 'skipped']);
-
             return;
         }
 
-        // Paused is reversible: drop this job but leave the recipient pending so
-        // resuming re-queues them. Marking them skipped here would silently burn
-        // the remaining audience the moment someone hit pause.
         if ($campaign->status === CampaignStatus::Paused) {
+            $recipient->update(['status' => 'pending']);
             return;
         }
 
         $contact = $recipient->contact;
         $template = $campaign->template;
 
-        if (! $contact || ! $template || ! $template->isApproved()) {
-            $recipient->update(['status' => 'failed', 'error_message' => 'Missing contact or unapproved template.']);
+        if (! $contact || ! $template || ! $template->isApproved()
+            || $template->whatsapp_account_id !== $campaign->whatsapp_account_id) {
+            $recipient->update(['status' => 'failed', 'error_message' => 'Missing contact, invalid account binding, or unapproved template.']);
             $campaign->increment('failed_count');
-
+            $this->completeIfFinished($campaign);
             return;
         }
 
         if ($contact->opt_in_status === 'opted_out') {
             $recipient->update(['status' => 'skipped', 'error_message' => 'Contact opted out.']);
-
+            $this->completeIfFinished($campaign);
             return;
         }
 
@@ -84,14 +90,22 @@ class SendCampaignMessage implements ShouldQueue
             ],
         );
 
-        $rendered = $renderer->render($template, $conversation, $campaign->variable_mappings ?? []);
-
-        $message = $messages->sendTemplate($conversation, $template, $rendered['components'], $rendered['text'], [
-            'sender_type' => MessageSenderType::System,
-            'sync' => true,
-        ]);
-
-        $message->refresh();
+        try {
+            $rendered = $renderer->render($template, $conversation, $campaign->variable_mappings ?? []);
+            $message = $messages->sendTemplate($conversation, $template, $rendered['components'], $rendered['text'], [
+                'sender_type' => MessageSenderType::System,
+                'sync' => true,
+            ])->refresh();
+        } catch (\Throwable $e) {
+            $recipient->update([
+                'status' => 'failed',
+                'error_message' => mb_substr($e->getMessage(), 0, 2000),
+            ]);
+            $campaign->increment('failed_count');
+            report($e);
+            $this->completeIfFinished($campaign);
+            return;
+        }
 
         if ($message->status === MessageStatus::Failed) {
             $recipient->update([
@@ -109,10 +123,16 @@ class SendCampaignMessage implements ShouldQueue
             $campaign->increment('sent_count');
         }
 
-        // Completion check.
-        $pending = $campaign->recipients()->where('status', 'pending')->exists();
+        $this->completeIfFinished($campaign);
+    }
 
-        if (! $pending && $campaign->status === CampaignStatus::Processing) {
+    protected function completeIfFinished($campaign): void
+    {
+        $unfinished = $campaign->recipients()
+            ->whereIn('status', ['pending', 'processing'])
+            ->exists();
+
+        if (! $unfinished && $campaign->status === CampaignStatus::Processing) {
             $campaign->update(['status' => CampaignStatus::Completed, 'completed_at' => now()]);
         }
     }
