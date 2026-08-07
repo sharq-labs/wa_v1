@@ -7,13 +7,8 @@ use App\Models\WhatsAppAccount;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
-/**
- * Official Meta WhatsApp Business Platform (Cloud API) provider.
- *
- * All Graph API knowledge lives here. Access tokens are decrypted only at
- * call time and are never logged.
- */
 class MetaWhatsAppProvider implements MessagingProviderInterface
 {
     protected function graphUrl(string $path): string
@@ -27,7 +22,9 @@ class MetaWhatsAppProvider implements MessagingProviderInterface
     protected function request(WhatsAppAccount $account)
     {
         return Http::withToken($account->access_token)
+            ->connectTimeout(5)
             ->timeout(15)
+            ->retry(2, 250, throw: false)
             ->acceptJson();
     }
 
@@ -135,7 +132,6 @@ class MetaWhatsAppProvider implements MessagingProviderInterface
     public function sendInteractive(WhatsAppAccount $account, string $to, array $interactive, array $options = []): ProviderResult
     {
         $type = $interactive['type'] ?? 'button';
-
         $payload = [
             'messaging_product' => 'whatsapp',
             'to' => $to,
@@ -177,17 +173,90 @@ class MetaWhatsAppProvider implements MessagingProviderInterface
     public function markAsRead(WhatsAppAccount $account, string $providerMessageId): bool
     {
         try {
-            $response = $this->request($account)->post(
+            return $this->request($account)->post(
                 $this->graphUrl("{$account->phone_number_id}/messages"),
                 [
                     'messaging_product' => 'whatsapp',
                     'status' => 'read',
                     'message_id' => $providerMessageId,
                 ],
-            );
-
-            return $response->successful();
+            )->successful();
         } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    public function createTemplate(WhatsAppAccount $account, array $definition): array
+    {
+        $components = [];
+        $headerType = strtolower((string) ($definition['header_type'] ?? ''));
+        $headerContent = trim((string) ($definition['header_content'] ?? ''));
+
+        if ($headerType === 'text' && $headerContent !== '') {
+            $components[] = ['type' => 'HEADER', 'format' => 'TEXT', 'text' => $headerContent];
+        } elseif (in_array($headerType, ['image', 'video', 'document'], true)) {
+            // Media template headers require an uploaded example handle. Until a
+            // handle is supplied by the UI/provider upload flow, fail explicitly
+            // instead of creating a local-only template that Meta never received.
+            throw new RuntimeException('Media template headers require a Meta example media handle.');
+        }
+
+        $body = ['type' => 'BODY', 'text' => (string) $definition['body']];
+        if (! empty($definition['variables'])) {
+            ksort($definition['variables']);
+            $body['example'] = ['body_text' => [array_values($definition['variables'])]];
+        }
+        $components[] = $body;
+
+        if (! empty($definition['footer'])) {
+            $components[] = ['type' => 'FOOTER', 'text' => (string) $definition['footer']];
+        }
+
+        if (! empty($definition['buttons'])) {
+            $buttons = [];
+            foreach ($definition['buttons'] as $button) {
+                $type = strtolower((string) ($button['type'] ?? ''));
+                $mapped = match ($type) {
+                    'quick_reply' => ['type' => 'QUICK_REPLY', 'text' => $button['text']],
+                    'url' => ['type' => 'URL', 'text' => $button['text'], 'url' => $button['url'] ?? ''],
+                    'phone' => ['type' => 'PHONE_NUMBER', 'text' => $button['text'], 'phone_number' => $button['phone'] ?? ''],
+                    default => null,
+                };
+                if ($mapped) {
+                    $buttons[] = $mapped;
+                }
+            }
+            if ($buttons !== []) {
+                $components[] = ['type' => 'BUTTONS', 'buttons' => $buttons];
+            }
+        }
+
+        $response = $this->request($account)->post(
+            $this->graphUrl("{$account->waba_id}/message_templates"),
+            [
+                'name' => $definition['name'],
+                'language' => $definition['language'],
+                'category' => $definition['category'],
+                'components' => $components,
+            ],
+        );
+
+        if (! $response->successful()) {
+            throw new RuntimeException((string) ($response->json('error.message') ?? 'Meta template creation failed.'));
+        }
+
+        return $response->json() ?? [];
+    }
+
+    public function deleteTemplate(WhatsAppAccount $account, string $templateName): bool
+    {
+        try {
+            return $this->request($account)->delete(
+                $this->graphUrl("{$account->waba_id}/message_templates"),
+                ['name' => $templateName],
+            )->successful();
+        } catch (\Throwable $e) {
+            Log::warning('Meta template delete failed', ['account' => $account->id, 'error' => $e->getMessage()]);
             return false;
         }
     }
@@ -199,7 +268,6 @@ class MetaWhatsAppProvider implements MessagingProviderInterface
 
         while ($url) {
             $response = $this->request($account)->get($url);
-
             if (! $response->successful()) {
                 break;
             }
