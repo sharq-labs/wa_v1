@@ -40,27 +40,29 @@ class ProcessCampaign implements ShouldQueue
         $campaign->update(['status' => CampaignStatus::Processing, 'started_at' => $campaign->started_at ?? now()]);
 
         $chunkSize = (int) config('whatsapp.campaign_chunk_size', 100);
-        $total = 0;
+        $total = $service->audienceQuery($campaign)->count();
 
         $service->audienceQuery($campaign)
-            ->select('id')
-            ->chunkById($chunkSize, function ($contacts) use ($campaign, &$total) {
-                $rows = $contacts->map(fn ($c) => [
-                    'campaign_id' => $campaign->id,
-                    'contact_id' => $c->id,
-                    'status' => 'pending',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ])->all();
+            ->select(['contacts.id', 'contacts.opt_in_status'])
+            ->chunkById($chunkSize, function ($contacts) use ($campaign, $service) {
+                $eligibility = $service->eligibilityForContacts($campaign, $contacts);
 
-                // Idempotent: unique(campaign_id, contact_id) — reruns skip existing.
-                CampaignRecipient::query()->upsert(
-                    $rows,
-                    ['campaign_id', 'contact_id'],
-                    ['updated_at'],
-                );
+                $rows = $contacts->map(function ($contact) use ($campaign, $eligibility) {
+                    $decision = $eligibility[$contact->id] ?? ['eligible' => false, 'reason' => 'Contact is not eligible.'];
 
-                $total += count($rows);
+                    return [
+                        'campaign_id' => $campaign->id,
+                        'contact_id' => $contact->id,
+                        'status' => $decision['eligible'] ? 'pending' : 'skipped',
+                        'error_message' => $decision['reason'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                })->all();
+
+                // Existing rows may already be sent/delivered/read. Never reset
+                // them when a scheduler retry materialises the same audience.
+                CampaignRecipient::query()->insertOrIgnore($rows);
             });
 
         $campaign->update(['total_recipients' => $total]);
@@ -81,8 +83,12 @@ class ProcessCampaign implements ShouldQueue
                 }
             });
 
-        if ($total === 0) {
-            $campaign->update(['status' => CampaignStatus::Completed, 'completed_at' => now()]);
+        // Covers an empty audience and an audience where everyone is suppressed.
+        if (! $campaign->recipients()->whereIn('status', ['pending', 'processing'])->exists()) {
+            $campaign->refresh();
+            if ($campaign->status === CampaignStatus::Processing) {
+                $campaign->update(['status' => CampaignStatus::Completed, 'completed_at' => now()]);
+            }
         }
     }
 }
