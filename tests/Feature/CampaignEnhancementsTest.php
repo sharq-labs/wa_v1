@@ -5,6 +5,7 @@ use App\Enums\MessageDirection;
 use App\Enums\MessageSenderType;
 use App\Enums\MessageStatus;
 use App\Enums\MessageType;
+use App\Enums\WebhookEventStatus;
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
 use App\Models\Contact;
@@ -130,7 +131,9 @@ it('duplicates a campaign as a clean draft', function () {
     $copy = Campaign::query()->findOrFail($response->json('data.id'));
     expect($copy->status)->toBe(CampaignStatus::Draft)
         ->and($copy->audience_config)->toBe($campaign->audience_config)
-        ->and($copy->variable_mappings)->toBe($campaign->variable_mappings)
+        ->and($copy->variable_mappings[0]['index'])->toBe(1)
+        ->and($copy->variable_mappings[0]['source'])->toBe('static')
+        ->and($copy->variable_mappings[0]['value'])->toBe('Friend')
         ->and($copy->total_recipients)->toBe(0)
         ->and($copy->sent_count)->toBe(0)
         ->and($copy->delivered_count)->toBe(0)
@@ -184,7 +187,7 @@ it('updates campaign delivery and read counters from Meta status webhooks', func
             'event_id' => 'campaign-status-'.$index,
             'event_type' => 'messages',
             'workspace_id' => $ctx['workspace']->id,
-            'status' => 'received',
+            'status' => WebhookEventStatus::Pending,
             'payload' => [
                 'entry' => [[
                     'changes' => [[
