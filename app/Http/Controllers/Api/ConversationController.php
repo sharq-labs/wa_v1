@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Enums\ConversationStatus;
+use App\Enums\WorkspaceRole;
 use App\Events\AgentTyping;
 use App\Http\Resources\ConversationResource;
 use App\Models\AgentTeam;
@@ -33,33 +34,13 @@ class ConversationController extends ApiController
             default => null,
         };
 
-        if ($status = $request->query('status')) {
-            $query->where('status', $status);
-        }
-
-        if ($request->boolean('unread')) {
-            $query->where('unread_count', '>', 0);
-        }
-
-        if ($userId = $request->query('assigned_user_id')) {
-            $query->where('assigned_user_id', $userId);
-        }
-
-        if ($teamId = $request->query('assigned_team_id')) {
-            $query->where('assigned_team_id', $teamId);
-        }
-
-        if ($accountId = $request->query('whatsapp_account_id')) {
-            $query->where('whatsapp_account_id', $accountId);
-        }
-
-        if ($tagId = $request->query('tag_id')) {
-            $query->whereHas('contact.tags', fn ($q) => $q->where('tags.id', $tagId));
-        }
-
-        if ($search = $request->query('search')) {
-            $query->whereHas('contact', fn ($q) => $q->search($search));
-        }
+        if ($status = $request->query('status')) $query->where('status', $status);
+        if ($request->boolean('unread')) $query->where('unread_count', '>', 0);
+        if ($userId = $request->query('assigned_user_id')) $query->where('assigned_user_id', $userId);
+        if ($teamId = $request->query('assigned_team_id')) $query->where('assigned_team_id', $teamId);
+        if ($accountId = $request->query('whatsapp_account_id')) $query->where('whatsapp_account_id', $accountId);
+        if ($tagId = $request->query('tag_id')) $query->whereHas('contact.tags', fn ($q) => $q->where('tags.id', $tagId));
+        if ($search = $request->query('search')) $query->whereHas('contact', fn ($q) => $q->search($search));
 
         $conversations = $query->orderByDesc('last_message_at')
             ->paginate(min((int) $request->query('per_page', 25), 100));
@@ -78,7 +59,6 @@ class ConversationController extends ApiController
     {
         Gate::authorize('useInbox', $workspace);
         abort_unless($conversation->workspace_id === $workspace->id, 404);
-
         $conversation->load(['contact.tags', 'contact.customFieldValues.customField', 'assignedUser', 'assignedTeam']);
 
         return $this->success([
@@ -101,10 +81,19 @@ class ConversationController extends ApiController
         if (! empty($data['user_id'])) {
             $user = User::query()->findOrFail($data['user_id']);
             abort_unless($user->belongsToWorkspace($workspace), 422, 'User is not a workspace member.');
+            abort_unless(
+                $user->hasWorkspaceRole($workspace, WorkspaceRole::Agent),
+                422,
+                'Only users with inbox access can be assigned conversations.',
+            );
 
             $team = ! empty($data['team_id'])
                 ? AgentTeam::query()->forWorkspace($workspace)->findOrFail($data['team_id'])
                 : null;
+
+            if ($team) {
+                abort_unless($team->members()->whereKey($user->id)->exists(), 422, 'User is not a member of the selected team.');
+            }
 
             $assignment->assignToUser($conversation, $user, $team);
         } elseif (! empty($data['team_id'])) {
@@ -126,9 +115,7 @@ class ConversationController extends ApiController
     {
         Gate::authorize('useInbox', $workspace);
         abort_unless($conversation->workspace_id === $workspace->id, 404);
-
         $assignment->unassign($conversation);
-
         return $this->success(new ConversationResource($conversation->fresh(['contact'])), __('Conversation unassigned.'));
     }
 
@@ -136,13 +123,8 @@ class ConversationController extends ApiController
     {
         Gate::authorize('useInbox', $workspace);
         abort_unless($conversation->workspace_id === $workspace->id, 404);
-
-        $data = $request->validate([
-            'status' => ['required', 'in:open,pending,closed'],
-        ]);
-
+        $data = $request->validate(['status' => ['required', 'in:open,pending,closed']]);
         $service->setStatus($conversation, ConversationStatus::from($data['status']));
-
         return $this->success(new ConversationResource($conversation->fresh(['contact'])), __('Conversation updated.'));
     }
 
@@ -150,9 +132,7 @@ class ConversationController extends ApiController
     {
         Gate::authorize('useInbox', $workspace);
         abort_unless($conversation->workspace_id === $workspace->id, 404);
-
         $service->pauseBot($conversation);
-
         return $this->success(new ConversationResource($conversation->fresh(['contact'])), __('Bot paused for this conversation.'));
     }
 
@@ -160,9 +140,7 @@ class ConversationController extends ApiController
     {
         Gate::authorize('useInbox', $workspace);
         abort_unless($conversation->workspace_id === $workspace->id, 404);
-
         $service->resumeBot($conversation);
-
         return $this->success(new ConversationResource($conversation->fresh(['contact'])), __('Bot resumed for this conversation.'));
     }
 
@@ -170,9 +148,7 @@ class ConversationController extends ApiController
     {
         Gate::authorize('useInbox', $workspace);
         abort_unless($conversation->workspace_id === $workspace->id, 404);
-
         $service->markRead($conversation);
-
         return $this->success(null, __('Marked as read.'));
     }
 
