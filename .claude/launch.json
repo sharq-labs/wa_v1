@@ -1,0 +1,24 @@
+{
+    "version": "0.0.1",
+    "configurations": [
+        {
+            "name": "whatsflow",
+            "runtimeExecutable": "php",
+            "runtimeArgs": ["artisan", "serve"],
+            "url": "http://localhost:8000",
+            "port": 8000
+        },
+        {
+            "name": "vite",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "dev"],
+            "port": 5173
+        },
+        {
+            "name": "reverb",
+            "runtimeExecutable": "php",
+            "runtimeArgs": ["artisan", "reverb:start"],
+            "port": 8081
+        }
+    ]
+}

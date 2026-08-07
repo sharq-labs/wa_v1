@@ -1,0 +1,154 @@
+<?php
+
+namespace App\Services\Messaging;
+
+use App\Enums\AutomationStatus;
+use App\Enums\ConversationStatus;
+use App\Enums\MessageDirection;
+use App\Enums\MessageSenderType;
+use App\Enums\MessageStatus;
+use App\Enums\MessageType;
+use App\Events\ConversationUpdated;
+use App\Events\NewMessage;
+use App\Http\Resources\MessageResource;
+use App\Jobs\ProcessInboundMessageAutomation;
+use App\Models\Contact;
+use App\Models\Conversation;
+use App\Models\Message;
+use App\Models\WhatsAppAccount;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Normalised inbound message ingestion. Idempotent on provider_message_id.
+ */
+class InboundMessageService
+{
+    /**
+     * @param array{
+     *     provider_message_id: string,
+     *     wa_id: string,
+     *     phone_number?: ?string,
+     *     profile_name?: ?string,
+     *     type?: string,
+     *     text?: ?string,
+     *     media_url?: ?string,
+     *     media_mime_type?: ?string,
+     *     payload?: ?array,
+     *     timestamp?: ?int,
+     * } $data
+     */
+    public function ingest(WhatsAppAccount $account, array $data): ?Message
+    {
+        // Idempotency: a duplicate webhook must never create duplicate rows.
+        $existing = Message::query()
+            ->where('workspace_id', $account->workspace_id)
+            ->where('provider_message_id', $data['provider_message_id'])
+            ->first();
+
+        if ($existing) {
+            return null;
+        }
+
+        [$message, $contact, $conversation, $isNewContact] = DB::transaction(function () use ($account, $data) {
+            $contact = $this->resolveContact($account, $data);
+            $isNewContact = $contact->wasRecentlyCreated;
+            $conversation = $this->resolveConversation($account, $contact);
+
+            $message = Message::query()->create([
+                'workspace_id' => $account->workspace_id,
+                'conversation_id' => $conversation->id,
+                'contact_id' => $contact->id,
+                'whatsapp_account_id' => $account->id,
+                'provider_message_id' => $data['provider_message_id'],
+                'direction' => MessageDirection::Inbound,
+                'sender_type' => MessageSenderType::Contact,
+                'message_type' => MessageType::tryFrom($data['type'] ?? 'text') ?? MessageType::Unknown,
+                'content' => $data['text'] ?? null,
+                'media_url' => $data['media_url'] ?? null,
+                'media_mime_type' => $data['media_mime_type'] ?? null,
+                'payload' => $data['payload'] ?? null,
+                'status' => MessageStatus::Received,
+            ]);
+
+            $now = now();
+            $conversation->forceFill([
+                'status' => $conversation->status === ConversationStatus::Closed
+                    ? ConversationStatus::Open
+                    : $conversation->status,
+                'last_message_at' => $now,
+                'last_inbound_at' => $now,
+                'unread_count' => $conversation->unread_count + 1,
+                'opened_at' => $conversation->opened_at ?? $now,
+                'closed_at' => $conversation->status === ConversationStatus::Closed ? null : $conversation->closed_at,
+            ])->save();
+
+            $contact->forceFill([
+                'last_seen_at' => $now,
+                'last_message_at' => $now,
+            ])->save();
+
+            return [$message, $contact, $conversation, $isNewContact];
+        });
+
+        broadcast(new NewMessage($account->workspace_id, [
+            'message' => MessageResource::make($message)->resolve(),
+            'conversation_id' => $conversation->id,
+        ]));
+
+        broadcast(new ConversationUpdated($account->workspace_id, [
+            'conversation_id' => $conversation->id,
+            'status' => $conversation->status->value,
+            'unread_count' => $conversation->unread_count,
+            'last_message_at' => $conversation->last_message_at?->toIso8601String(),
+        ]));
+
+        ProcessInboundMessageAutomation::dispatch($message->id, $isNewContact)->onQueue('automations');
+
+        return $message;
+    }
+
+    protected function resolveContact(WhatsAppAccount $account, array $data): Contact
+    {
+        $phone = $data['phone_number'] ?? $data['wa_id'];
+
+        $contact = Contact::query()
+            ->where('workspace_id', $account->workspace_id)
+            ->where(function ($q) use ($data, $phone) {
+                $q->where('wa_id', $data['wa_id'])->orWhere('phone_number', $phone);
+            })
+            ->first();
+
+        if ($contact) {
+            if (! $contact->wa_id) {
+                $contact->forceFill(['wa_id' => $data['wa_id']])->save();
+            }
+
+            return $contact;
+        }
+
+        return Contact::query()->create([
+            'workspace_id' => $account->workspace_id,
+            'whatsapp_account_id' => $account->id,
+            'wa_id' => $data['wa_id'],
+            'phone_number' => $phone,
+            'display_name' => $data['profile_name'] ?? null,
+            'first_name' => $data['profile_name'] ? explode(' ', trim($data['profile_name']))[0] : null,
+        ]);
+    }
+
+    protected function resolveConversation(WhatsAppAccount $account, Contact $contact): Conversation
+    {
+        return Conversation::query()->firstOrCreate(
+            [
+                'workspace_id' => $account->workspace_id,
+                'whatsapp_account_id' => $account->id,
+                'contact_id' => $contact->id,
+            ],
+            [
+                'status' => ConversationStatus::Open,
+                'automation_status' => AutomationStatus::Active,
+                'opened_at' => now(),
+            ],
+        );
+    }
+}

@@ -1,0 +1,556 @@
+@import 'tailwindcss';
+
+/* Class-based dark mode (html.dark), not prefers-color-scheme alone. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Fonts: Inter for Latin, Tajawal for Arabic.
+   Tajawal has no 600 — map semibold → 500 so UI doesn't fake-bold awkwardly. */
+@import '@fontsource-variable/inter/index.css';
+@import '@fontsource-variable/sora/index.css';
+@import '@fontsource/tajawal/300.css';
+@import '@fontsource/tajawal/400.css';
+@import '@fontsource/tajawal/500.css';
+@import '@fontsource/tajawal/700.css';
+@import '@fontsource/tajawal/800.css';
+
+@source '../js/**/*.tsx';
+@source '../js/**/*.ts';
+@source '../views/**/*.blade.php';
+
+@theme {
+    --font-sans: 'Inter Variable', 'Tajawal', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-display: 'Sora Variable', 'Tajawal', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+
+    /* Align Tailwind weight scale with Tajawal's real faces. */
+    --font-weight-light: 300;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 500;
+    --font-weight-bold: 700;
+    --font-weight-extrabold: 800;
+
+    /* Slightly larger type scale — Tajawal needs more optical size than Inter. */
+    --text-xs: 0.8125rem;
+    --text-xs--line-height: 1.35;
+    --text-sm: 0.9375rem;
+    --text-sm--line-height: 1.45;
+    --text-base: 1.0625rem;
+    --text-base--line-height: 1.6;
+    --text-lg: 1.1875rem;
+    --text-lg--line-height: 1.45;
+    --text-xl: 1.3125rem;
+    --text-xl--line-height: 1.35;
+    --text-2xl: 1.625rem;
+    --text-2xl--line-height: 1.3;
+
+    --color-brand-50: #f0fdf4;
+    --color-brand-100: #dcfce7;
+    --color-brand-200: #bbf7d0;
+    --color-brand-300: #86efac;
+    --color-brand-400: #4ade80;
+    --color-brand-500: #22c55e;
+    --color-brand-600: #16a34a;
+    --color-brand-700: #15803d;
+    --color-brand-800: #166534;
+    --color-brand-900: #14532d;
+    --color-brand-950: #052e16;
+
+    /* Softer elevation — less glare than bright white slabs on a near-white canvas. */
+    --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.05), 0 2px 8px -2px rgb(15 23 42 / 0.08);
+    --shadow-pop: 0 4px 10px -2px rgb(15 23 42 / 0.08), 0 12px 28px -8px rgb(15 23 42 / 0.14);
+
+    /* Cool light canvas — clean contrast with white panels, subtle brand-green whisper. */
+    --color-canvas: #f0f2f1;
+    --color-surface: #fafbfa;
+    --color-panel: #ffffff;
+
+    --animate-fade-in: fade-in 0.15s ease-out;
+    --animate-modal-in: modal-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    --animate-drawer-in: drawer-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    --animate-drawer-in-rtl: drawer-in-rtl 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    --animate-toast-in: toast-in 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+    --animate-skeleton: skeleton 1.4s ease-in-out infinite;
+
+    @keyframes fade-in {
+        from {
+            opacity: 0;
+        }
+    }
+    @keyframes modal-in {
+        from {
+            opacity: 0;
+            transform: translateY(10px) scale(0.97);
+        }
+    }
+    @keyframes drawer-in {
+        from {
+            transform: translateX(-100%);
+        }
+    }
+    @keyframes drawer-in-rtl {
+        from {
+            transform: translateX(100%);
+        }
+    }
+    @keyframes builder-notice-in {
+        from {
+            opacity: 0;
+            transform: translateY(-8px) scale(0.98);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+    @keyframes sim-bubble-in {
+        from {
+            opacity: 0;
+            transform: translateY(10px) scale(0.96);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+    @keyframes sim-typing-bounce {
+        0%,
+        60%,
+        100% {
+            transform: translateY(0);
+            opacity: 0.45;
+        }
+        30% {
+            transform: translateY(-3px);
+            opacity: 1;
+        }
+    }
+    @keyframes toast-in {
+        from {
+            opacity: 0;
+            transform: translateY(10px) scale(0.98);
+        }
+    }
+    @keyframes skeleton {
+        50% {
+            opacity: 0.45;
+        }
+    }
+    @keyframes auth-fade-up {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    @keyframes auth-glow {
+        0%,
+        100% {
+            opacity: 0.55;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 0.9;
+            transform: scale(1.06);
+        }
+    }
+    @keyframes auth-bubble {
+        from {
+            opacity: 0;
+            transform: translateY(8px) scale(0.97);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+    @keyframes dash-reveal {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+}
+
+/* Indeterminate top bar shown during route changes and first-time data loads.
+   Kept as plain CSS (not a utility) because it animates two properties at once
+   and has to survive the global reduced-motion override below. */
+.route-progress {
+    position: fixed;
+    inset-inline: 0;
+    top: 0;
+    z-index: 120;
+    height: 3px;
+    overflow: hidden;
+    pointer-events: none;
+    background-color: color-mix(in srgb, var(--color-brand-600) 14%, transparent);
+}
+
+.route-progress-bar {
+    position: absolute;
+    inset-block: 0;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--color-brand-400), var(--color-brand-600));
+    box-shadow: 0 0 8px color-mix(in srgb, var(--color-brand-600) 65%, transparent);
+    animation: route-progress 1.15s cubic-bezier(0.65, 0.05, 0.36, 1) infinite;
+}
+
+/* `inset-inline-start` rather than a transform, so the sweep runs right-to-left
+   under RTL without a separate keyframe set. */
+@keyframes route-progress {
+    0% {
+        inset-inline-start: -40%;
+        width: 40%;
+    }
+    50% {
+        width: 60%;
+    }
+    100% {
+        inset-inline-start: 100%;
+        width: 20%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    /* The blanket rule further down collapses every animation to 0.01ms, which
+       would park the sweep off-screen. Fall back to a steady bar so the loading
+       state stays legible. */
+    .route-progress-bar {
+        animation: none !important;
+        inset-inline: 0;
+        width: auto;
+        opacity: 0.8;
+    }
+}
+
+/* Auth / marketing display type — Sora for Latin, Tajawal for RTL. */
+.auth-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+}
+
+html[dir='rtl'] .auth-display {
+    font-family: 'Tajawal', 'Sora Variable', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: 0;
+    font-weight: 700;
+}
+
+.auth-shell-fade {
+    animation: auth-fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.auth-shell-fade-delay {
+    animation: auth-fade-up 0.65s 0.08s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.auth-shell-fade-late {
+    animation: auth-fade-up 0.7s 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.auth-shell-glow {
+    animation: auth-glow 8s ease-in-out infinite;
+}
+
+.auth-shell-glow-delay {
+    animation: auth-glow 10s 1.2s ease-in-out infinite;
+}
+
+.auth-bubble-in {
+    animation: auth-bubble 0.5s 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.auth-bubble-in-delay {
+    animation: auth-bubble 0.5s 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.auth-bubble-in-late {
+    animation: auth-bubble 0.5s 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Dashboard: calm staggered section entrance (slower than generic fade-in). */
+.dash-reveal {
+    animation: dash-reveal 0.48s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.dash-reveal-delay-1 {
+    animation-delay: 0.06s;
+}
+.dash-reveal-delay-2 {
+    animation-delay: 0.12s;
+}
+.dash-reveal-delay-3 {
+    animation-delay: 0.18s;
+}
+.dash-reveal-delay-4 {
+    animation-delay: 0.24s;
+}
+
+/* Sidebar nav scroll — thinner thumb, fades into the surface. */
+.sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(148 163 184 / 0.45) transparent;
+}
+.sidebar-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+    background-color: rgb(148 163 184 / 0.4);
+    border-radius: 999px;
+}
+
+html,
+body,
+#root {
+    height: 100%;
+}
+
+/* Interactive affordance — buttons/links must show a pointer cursor. */
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']),
+a[href],
+summary,
+label[for],
+select:not(:disabled),
+input[type='checkbox']:not(:disabled),
+input[type='radio']:not(:disabled),
+input[type='file']:not(:disabled) {
+    cursor: pointer;
+}
+button:disabled,
+[aria-disabled='true'],
+select:disabled {
+    cursor: not-allowed;
+}
+
+html {
+    font-size: 16px;
+}
+
+html[dir='rtl'] {
+    font-size: 17px;
+}
+
+body {
+    font-family: var(--font-sans);
+    font-size: 1.0625rem; /* ~17px at 16 root / ~18px at 17 root */
+    line-height: 1.6;
+    font-feature-settings: 'kern' 1, 'liga' 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Arabic-first stack + rhythm tuned for Tajawal. */
+html[dir='rtl'] body {
+    font-family: 'Tajawal', 'Inter Variable', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    letter-spacing: 0;
+    word-spacing: 0.02em;
+}
+
+/* Tajawal reads better slightly heavier on small UI chrome. */
+html[dir='rtl'] {
+    --font-weight-medium: 500;
+    --font-weight-semibold: 700;
+    --font-weight-bold: 700;
+    --font-weight-extrabold: 800;
+}
+
+/* Latin tracking / uppercase don't suit Arabic labels. */
+html[dir='rtl'] .tracking-tight,
+html[dir='rtl'] .tracking-tighter,
+html[dir='rtl'] .tracking-wide,
+html[dir='rtl'] .tracking-wider,
+html[dir='rtl'] .tracking-widest,
+html[dir='rtl'] [class*='tracking-['] {
+    letter-spacing: 0 !important;
+}
+
+html[dir='rtl'] .uppercase {
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+/* Headings: calmer weight + clearer Arabic leading. */
+h1,
+h2,
+h3,
+h4 {
+    text-wrap: balance;
+    letter-spacing: -0.02em;
+}
+
+html[dir='rtl'] h1,
+html[dir='rtl'] h2,
+html[dir='rtl'] h3,
+html[dir='rtl'] h4 {
+    letter-spacing: 0;
+    line-height: 1.35;
+}
+
+/* Numbers stay tabular in metrics without distorting Arabic. */
+.tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+}
+
+/* Soft dotted texture for the chat timeline, WhatsApp-style. */
+.chat-bg {
+    background-color: var(--color-slate-100);
+    background-image: radial-gradient(var(--color-slate-200) 1px, transparent 1px);
+    background-size: 18px 18px;
+}
+
+/* Automation WhatsApp simulator wallpaper + typing dots. */
+.sim-chat-bg {
+    background-color: #e5ddd5;
+    background-image:
+        radial-gradient(rgba(0, 0, 0, 0.04) 0.7px, transparent 0.7px),
+        radial-gradient(rgba(255, 255, 255, 0.35) 0.7px, transparent 0.7px);
+    background-size: 22px 22px;
+    background-position:
+        0 0,
+        11px 11px;
+}
+
+.sim-typing-dot {
+    display: inline-block;
+    height: 6px;
+    width: 6px;
+    border-radius: 999px;
+    background: #667781;
+    animation: sim-typing-bounce 1.2s ease-in-out infinite;
+}
+
+/* Custom chevron for remaining native <select> fallbacks. */
+.select-chevron {
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-size: 16px 16px;
+    background-position: right 0.65rem center;
+    padding-inline-end: 2.25rem;
+}
+html[dir='rtl'] .select-chevron {
+    background-position: left 0.65rem center;
+}
+
+.dropdown-menu {
+    animation: dropdown-in 0.16s cubic-bezier(0.16, 1, 0.3, 1) both;
+    transform-origin: top center;
+}
+@keyframes dropdown-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+::selection {
+    background-color: var(--color-brand-100);
+    color: var(--color-brand-900);
+}
+
+/* Slim, unobtrusive scrollbars (chat panes, sidebars, tables). */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-slate-300) transparent;
+}
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+    background-color: var(--color-slate-300);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-slate-400);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/*
+ * Dark theme — remap semantic + slate tokens so existing utilities
+ * (bg-white, text-slate-900, border-slate-200…) flip without per-page rewrites.
+ */
+html.dark {
+    color-scheme: dark;
+
+    --color-canvas: #101412;
+    --color-surface: #161b18;
+    --color-panel: #1c2320;
+
+    --shadow-card: 0 1px 2px 0 rgb(0 0 0 / 0.35), 0 2px 10px -2px rgb(0 0 0 / 0.45);
+    --shadow-pop: 0 8px 24px -6px rgb(0 0 0 / 0.55), 0 16px 40px -12px rgb(0 0 0 / 0.5);
+
+    --color-white: #1c2320;
+    --color-black: #f1f5f4;
+
+    --color-slate-50: #1a211e;
+    --color-slate-100: #212925;
+    --color-slate-200: #2c3531;
+    --color-slate-300: #3d4943;
+    --color-slate-400: #7c8a82;
+    --color-slate-500: #9aa69f;
+    --color-slate-600: #b8c2bc;
+    --color-slate-700: #d1d8d4;
+    --color-slate-800: #e4e9e6;
+    --color-slate-900: #f1f5f4;
+    --color-slate-950: #f8faf9;
+
+    --color-brand-50: #14241a;
+    --color-brand-100: #1a3324;
+    --color-brand-200: #234a32;
+    --color-brand-800: #86efac;
+    --color-brand-900: #bbf7d0;
+    --color-brand-950: #dcfce7;
+}
+
+html.dark body {
+    background-color: var(--color-canvas);
+    color: var(--color-slate-800);
+}
+
+html.dark .chat-bg {
+    background-color: #151a17;
+    background-image: radial-gradient(#2c3531 1px, transparent 1px);
+}
+
+html.dark .sim-chat-bg {
+    background-color: #1a221c;
+}
+
+html.dark .dropdown-menu {
+    border-color: rgb(61 73 67 / 0.9);
+    background-color: var(--color-panel);
+}
+
+html.dark .route-progress {
+    background-color: color-mix(in srgb, var(--color-brand-600) 22%, transparent);
+}
+
+/* React Flow needs its stylesheet; imported in the builder page. */
