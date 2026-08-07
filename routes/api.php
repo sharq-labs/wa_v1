@@ -148,7 +148,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // Campaigns & segments
         Route::get('/campaigns', [Api\CampaignController::class, 'index']);
         Route::post('/campaigns', [Api\CampaignController::class, 'store']);
+        Route::post('/campaigns/preview', [Api\CampaignController::class, 'preview']);
         Route::get('/campaigns/{campaign}', [Api\CampaignController::class, 'show']);
+        Route::post('/campaigns/{campaign}/duplicate', [Api\CampaignController::class, 'duplicate']);
         Route::post('/campaigns/{campaign}/schedule', [Api\CampaignController::class, 'schedule']);
         Route::post('/campaigns/{campaign}/pause', [Api\CampaignController::class, 'pause']);
         Route::post('/campaigns/{campaign}/resume', [Api\CampaignController::class, 'resume']);
