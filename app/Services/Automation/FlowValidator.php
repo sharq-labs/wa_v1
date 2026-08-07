@@ -7,15 +7,8 @@ use App\Enums\TemplateStatus;
 use App\Models\WhatsAppTemplate;
 use App\Models\Workspace;
 
-/**
- * Validates a flow definition before publishing. A definition that fails
- * validation can be saved as draft but can never be published.
- */
 class FlowValidator
 {
-    /**
-     * @return array<int, array{node_id: ?string, message: string}>
-     */
     public function validate(Workspace $workspace, array $definition): array
     {
         $errors = [];
@@ -26,13 +19,29 @@ class FlowValidator
             return [['node_id' => null, 'message' => 'The flow is empty.']];
         }
 
-        $nodeIds = array_column($nodes, 'id');
-        $nodeById = array_combine($nodeIds, $nodes);
+        $nodeIds = array_map(fn ($node) => (string) ($node['id'] ?? ''), $nodes);
+        if (in_array('', $nodeIds, true)) {
+            $errors[] = ['node_id' => null, 'message' => 'Every node must have a non-empty id.'];
+        }
+        if (count($nodeIds) !== count(array_unique($nodeIds))) {
+            $errors[] = ['node_id' => null, 'message' => 'Node ids must be unique.'];
+        }
 
-        // Exactly one trigger.
+        $edgeIds = array_values(array_filter(array_map(fn ($edge) => (string) ($edge['id'] ?? ''), $edges)));
+        if (count($edgeIds) !== count(array_unique($edgeIds))) {
+            $errors[] = ['node_id' => null, 'message' => 'Edge ids must be unique.'];
+        }
+
+        // Avoid array_combine warnings/overwrites when ids are malformed.
+        $nodeById = [];
+        foreach ($nodes as $node) {
+            if (! empty($node['id']) && ! isset($nodeById[$node['id']])) {
+                $nodeById[$node['id']] = $node;
+            }
+        }
+
         $triggers = array_values(array_filter($nodes, function (array $n) {
             $type = NodeType::tryFrom($n['type'] ?? '');
-
             return $type?->isTrigger() ?? false;
         }));
 
@@ -42,7 +51,6 @@ class FlowValidator
             $errors[] = ['node_id' => $triggers[1]['id'] ?? null, 'message' => 'Only one trigger node is allowed per flow.'];
         }
 
-        // Edges must reference existing nodes.
         foreach ($edges as $edge) {
             if (! in_array($edge['source'] ?? null, $nodeIds, true)) {
                 $errors[] = ['node_id' => null, 'message' => 'An edge references a missing source node.'];
@@ -54,20 +62,19 @@ class FlowValidator
 
         foreach ($nodes as $node) {
             $type = NodeType::tryFrom($node['type'] ?? '');
-
             if (! $type) {
-                $errors[] = ['node_id' => $node['id'] ?? null, 'message' => "Unknown node type [{$node['type']}]."];
-
+                $errors[] = ['node_id' => $node['id'] ?? null, 'message' => 'Unknown node type ['.($node['type'] ?? '').'].'];
                 continue;
             }
 
             $errors = array_merge($errors, $this->validateNode($workspace, $node, $type, $edges));
         }
 
-        // Unreachable-loop guard: warn on cycles that contain no wait nodes.
-        $cycleNode = $this->findTightCycle($nodeIds, $nodeById, $edges);
-        if ($cycleNode !== null) {
-            $errors[] = ['node_id' => $cycleNode, 'message' => 'The flow contains a loop with no wait or delay inside it.'];
+        if (count($nodeById) === count(array_filter($nodeIds))) {
+            $cycleNode = $this->findTightCycle(array_keys($nodeById), $nodeById, $edges);
+            if ($cycleNode !== null) {
+                $errors[] = ['node_id' => $cycleNode, 'message' => 'The flow contains a loop with no wait or delay inside it.'];
+            }
         }
 
         return $errors;
@@ -78,7 +85,6 @@ class FlowValidator
         $errors = [];
         $config = $node['config'] ?? [];
         $id = $node['id'] ?? null;
-
         $push = function (string $message) use (&$errors, $id) {
             $errors[] = ['node_id' => $id, 'message' => $message];
         };
@@ -226,12 +232,6 @@ class FlowValidator
         return $errors;
     }
 
-    /**
-     * Detects cycles that contain no waiting node (ask/buttons/delay/until).
-     * Those would burn through the step limit instantly.
-     *
-     * @return string|null a node id inside the cycle
-     */
     protected function findTightCycle(array $nodeIds, array $nodeById, array $edges): ?string
     {
         $waitTypes = [
@@ -245,43 +245,36 @@ class FlowValidator
         foreach ($edges as $edge) {
             $source = $edge['source'] ?? null;
             $target = $edge['target'] ?? null;
-            if ($source && $target) {
+            if ($source && $target && isset($nodeById[$source], $nodeById[$target])) {
                 $adjacency[$source][] = $target;
             }
         }
 
         $visiting = [];
         $done = [];
-
         $dfs = function (string $nodeId, array $path) use (&$dfs, &$visiting, &$done, $adjacency, $nodeById, $waitTypes): ?string {
             if (isset($done[$nodeId])) {
                 return null;
             }
-
             if (isset($visiting[$nodeId])) {
-                // Cycle found — check whether any node inside it waits.
                 $cycleStart = array_search($nodeId, $path, true);
                 $cycle = array_slice($path, (int) $cycleStart);
-
                 foreach ($cycle as $id) {
                     if (in_array($nodeById[$id]['type'] ?? '', $waitTypes, true)) {
-                        return null; // waits inside — acceptable loop
+                        return null;
                     }
                 }
-
                 return $nodeId;
             }
 
             $visiting[$nodeId] = true;
             $path[] = $nodeId;
-
             foreach ($adjacency[$nodeId] ?? [] as $next) {
                 $found = $dfs($next, $path);
                 if ($found !== null) {
                     return $found;
                 }
             }
-
             unset($visiting[$nodeId]);
             $done[$nodeId] = true;
 
