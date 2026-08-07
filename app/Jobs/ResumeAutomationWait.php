@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 
 class ResumeAutomationWait implements ShouldQueue
 {
@@ -23,17 +24,18 @@ class ResumeAutomationWait implements ShouldQueue
 
     public function handle(AutomationEngine $engine): void
     {
-        $wait = AutomationWait::query()->find($this->waitId);
+        Cache::lock('automation-wait:'.$this->waitId, 15)->block(5, function () use ($engine) {
+            $wait = AutomationWait::query()->find($this->waitId);
 
-        if (! $wait || ! $wait->isPending()) {
-            return;
-        }
+            if (! $wait || ! $wait->isPending()) {
+                return;
+            }
 
-        if ($wait->resume_at && $wait->resume_at->isFuture()) {
-            // Scheduler / duplicate dispatch fired early; let the due job handle it.
-            return;
-        }
+            if ($wait->resume_at && $wait->resume_at->isFuture()) {
+                return;
+            }
 
-        $engine->resumeWait($wait);
+            $engine->resumeWait($wait);
+        });
     }
 }
