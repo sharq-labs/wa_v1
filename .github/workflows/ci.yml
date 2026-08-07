@@ -75,7 +75,9 @@ jobs:
         run: php artisan test
 
       - name: PHP formatting
-        run: vendor/bin/pint --test
+        run: |
+          vendor/bin/pint
+          git diff --exit-code
 
       - name: Frontend lint
         run: npm run lint
