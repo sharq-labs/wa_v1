@@ -16,9 +16,9 @@ class SendOutboundMessage implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 3;
-
-    public array $backoff = [5, 30, 120];
+    // A provider send is not safely retryable after the provider may have
+    // accepted the request. Claim exactly once and fail closed on crashes.
+    public int $tries = 1;
 
     public function __construct(public readonly int $messageId)
     {
@@ -27,12 +27,30 @@ class SendOutboundMessage implements ShouldQueue
 
     public function handle(MessageService $messages, MessagingManager $manager): void
     {
-        $message = Message::query()->find($this->messageId);
+        $claimed = Message::query()
+            ->whereKey($this->messageId)
+            ->where('status', MessageStatus::Queued->value)
+            ->update(['status' => MessageStatus::Sending->value]);
 
-        if (! $message || $message->status !== MessageStatus::Queued) {
+        if ($claimed !== 1) {
             return;
         }
 
-        $messages->deliver($message, $manager);
+        $message = Message::query()->find($this->messageId);
+        if (! $message) {
+            return;
+        }
+
+        try {
+            $messages->deliver($message, $manager);
+        } catch (\Throwable $e) {
+            $message->forceFill([
+                'status' => MessageStatus::Failed,
+                'error_code' => 'delivery_exception',
+                'error_message' => mb_substr($e->getMessage(), 0, 2000),
+                'failed_at' => now(),
+            ])->save();
+            report($e);
+        }
     }
 }
