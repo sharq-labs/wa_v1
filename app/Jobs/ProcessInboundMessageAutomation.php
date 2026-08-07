@@ -15,13 +15,8 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 
-/**
- * Automation entry point for every inbound message:
- *  1. a pending reply-wait on the conversation consumes the message
- *  2. otherwise, if the bot is active, trigger matching runs
- *  3. otherwise nothing happens (bot paused = humans own the conversation)
- */
 class ProcessInboundMessageAutomation implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
@@ -48,36 +43,42 @@ class ProcessInboundMessageAutomation implements ShouldQueue
         $conversation = $message->conversation;
         $workspace = $conversation->workspace;
 
-        // 1. Waiting question / buttons consume the reply — even when the bot
-        //    was paused after the wait was created the flow should finish.
-        $wait = AutomationWait::query()
-            ->where('conversation_id', $conversation->id)
-            ->where('wait_type', AutomationWait::TYPE_REPLY)
-            ->where('status', 'pending')
-            ->latest('id')
-            ->first();
+        // Serialize reply consumption per conversation. Without this lock two
+        // workers can both observe the same pending wait and advance the flow
+        // twice before either marks it resumed.
+        $consumedWait = Cache::lock('automation-reply:'.$conversation->id, 15)
+            ->block(5, function () use ($conversation, $engine, $message) {
+                $wait = AutomationWait::query()
+                    ->where('conversation_id', $conversation->id)
+                    ->where('wait_type', AutomationWait::TYPE_REPLY)
+                    ->where('status', 'pending')
+                    ->latest('id')
+                    ->first();
 
-        if ($wait) {
-            $engine->resumeReply($wait, $message);
+                if (! $wait) {
+                    return false;
+                }
 
+                $engine->resumeReply($wait, $message);
+
+                return true;
+            });
+
+        if ($consumedWait) {
             return;
         }
 
-        // 2. Bot paused: never auto-respond.
         if (! $conversation->isBotActive()) {
             return;
         }
 
         $matches = $matcher->match($workspace, $message, $this->isNewContact);
-
         if ($matches->isEmpty()) {
             $this->handleFallback($workspace, $message, $engine, $messages);
-
             return;
         }
 
         $allowMultiple = (bool) $workspace->setting('automation.allow_multiple', false);
-
         foreach ($allowMultiple ? $matches : $matches->take(1) as $automation) {
             $engine->start($automation, $message->contact, $conversation, $message);
         }
@@ -89,14 +90,12 @@ class ProcessInboundMessageAutomation implements ShouldQueue
 
         if ($mode === 'message') {
             $text = (string) $workspace->setting('automation.fallback_message', '');
-
             if ($text !== '' && $message->conversation) {
                 $messages->sendText($message->conversation, $text, [
                     'sender_type' => MessageSenderType::Bot,
                     'sync' => true,
                 ]);
             }
-
             return;
         }
 
