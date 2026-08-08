@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| Public webhooks (no auth, no CSRF; signature-verified)
+| Public webhooks / signed tracking (no auth)
 |--------------------------------------------------------------------------
 */
 Route::get('/webhooks/meta/whatsapp', [MetaWebhookController::class, 'verify']);
@@ -17,6 +17,9 @@ Route::post('/webhooks/paymob/transaction', [PaymobWebhookController::class, 're
     ->middleware('throttle:120,1');
 Route::post('/automation-hooks/{publicKey}', [Api\AutomationWebhookController::class, 'receive'])
     ->middleware('throttle:120,1');
+Route::get('/campaign-track/{recipient}', [Api\CampaignTrackingController::class, 'click'])
+    ->middleware(['signed', 'throttle:240,1'])
+    ->name('campaign.track.click');
 
 /*
 |--------------------------------------------------------------------------
@@ -129,6 +132,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/automations/{automation}/status', [Api\AutomationController::class, 'setStatus']);
         Route::get('/automations/{automation}/runs', [Api\AutomationController::class, 'runs']);
         Route::get('/automations/{automation}/runs/{runUuid}', [Api\AutomationController::class, 'runDetail']);
+        Route::get('/automations/{automation}/analytics', [Api\AutomationAnalyticsController::class, 'show']);
         Route::post('/automations/{automation}/simulate/start', [Api\SimulationController::class, 'start']);
         Route::post('/automations/{automation}/simulate/message', [Api\SimulationController::class, 'message']);
         Route::get('/automations/{automation}/webhook-endpoint', [Api\AutomationWebhookController::class, 'show']);
@@ -150,6 +154,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/campaigns/{campaign}/resume', [Api\CampaignController::class, 'resume']);
         Route::post('/campaigns/{campaign}/cancel', [Api\CampaignController::class, 'cancel']);
         Route::get('/campaigns/{campaign}/recipients', [Api\CampaignController::class, 'recipients']);
+        Route::post('/campaigns/{campaign}/recipients/{recipient}/tracking-link', [Api\CampaignTrackingController::class, 'link']);
+        Route::post('/campaigns/{campaign}/conversion', [Api\CampaignTrackingController::class, 'conversion']);
         Route::get('/segments', [Api\SegmentController::class, 'index']);
         Route::post('/segments', [Api\SegmentController::class, 'store']);
         Route::put('/segments/{segment}', [Api\SegmentController::class, 'update']);
