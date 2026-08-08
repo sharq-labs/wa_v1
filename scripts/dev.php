@@ -30,20 +30,22 @@ function supportedNodeVersion(string $version): bool
         return false;
     }
 
-    // Vite 8: ^20.19.0 || >=22.12.0
-    return (version_compare($version, '20.19.0', '>=') && version_compare($version, '21.0.0', '<'))
-        || version_compare($version, '22.12.0', '>=');
+    $supported20 = version_compare($version, '20.19.0', '>=')
+        && version_compare($version, '21.0.0', '<');
+    $supported22 = version_compare($version, '22.12.0', '>=');
+
+    return $supported20 || $supported22;
 }
 
-if (! file_exists(__DIR__.'/../artisan')) {
+if (file_exists(__DIR__.'/../artisan') === false) {
     fail('Run this command from the project root.');
 }
 
-if (! file_exists(__DIR__.'/../.env')) {
+if (file_exists(__DIR__.'/../.env') === false) {
     fail('Missing .env file. Copy .env.example to .env first.');
 }
 
-if (! file_exists(__DIR__.'/../vendor/autoload.php')) {
+if (file_exists(__DIR__.'/../vendor/autoload.php') === false) {
     fail('PHP dependencies are missing. Run: composer install');
 }
 
@@ -52,16 +54,16 @@ if ($nodeVersion === '') {
     fail('Node.js was not found in PATH. Install Node.js 20.19+ or 22.12+.');
 }
 
-if (! supportedNodeVersion($nodeVersion)) {
+if (supportedNodeVersion($nodeVersion) === false) {
     fail("Unsupported Node.js {$nodeVersion}. Vite 8 requires Node.js 20.19+ (20.x) or 22.12+. Update Node.js, reopen the terminal, then run composer dev again.");
 }
 
 $npmVersion = commandOutput('npm --version');
 if ($npmVersion === '') {
-    fail('npm was not found in PATH. Reinstall/repair Node.js.');
+    fail('npm was not found in PATH. Reinstall or repair Node.js.');
 }
 
-if (! is_dir(__DIR__.'/../node_modules')) {
+if (is_dir(__DIR__.'/../node_modules') === false) {
     fail('Frontend dependencies are missing. Run: npm install');
 }
 
@@ -92,7 +94,7 @@ $names = ['server', $queueName, 'scheduler', 'logs', 'vite', 'reverb'];
 $colors = ['#93c5fd', '#c4b5fd', '#fb7185', '#fdba74', '#6ee7b7', '#67e8f9'];
 
 $quotedCommands = array_map(
-    static fn (string $command): string => '"'.str_replace('"', '\\"', $command).'"',
+    static fn (string $childCommand): string => '"'.str_replace('"', '\\"', $childCommand).'"',
     $commands,
 );
 
