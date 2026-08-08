@@ -2,9 +2,7 @@
 
 namespace App\Services\Automation;
 
-use App\Enums\AutomationState;
 use App\Jobs\ProcessAutomationEvent;
-use App\Models\Automation;
 use App\Models\Workspace;
 
 class AutomationEventPublisher
