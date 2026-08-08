@@ -15,7 +15,6 @@ import { useThemeStore } from '@/stores/themeStore';
 import { describeError, toast } from '@/stores/toastStore';
 import { Spinner } from '@/components/ui';
 
-// Ensure theme class is applied as soon as the client bundle boots.
 useThemeStore.getState();
 
 import Login from '@/pages/auth/Login';
@@ -32,13 +31,10 @@ import AutomationRuns from '@/pages/automations/AutomationRuns';
 import TemplatesPage from '@/pages/templates/TemplatesPage';
 import CampaignsPage from '@/pages/campaigns/CampaignsPage';
 import AnalyticsPage from '@/pages/AnalyticsPage';
+import OperationsPage from '@/pages/operations/OperationsPage';
 import SettingsPage from '@/pages/settings/SettingsPage';
 import AdminPage from '@/pages/admin/AdminPage';
 
-/**
- * The toast layer lives outside React, so it cannot use the i18n context. The
- * locale lookup is the same one `I18nProvider` performs on boot.
- */
 function translate(key: string): string {
     const locale = localStorage.getItem('locale') === 'ar' ? ar : en;
     return locale[key] ?? en[key] ?? key;
@@ -48,17 +44,9 @@ const queryClient = new QueryClient({
     defaultOptions: {
         queries: { retry: 1, staleTime: 15_000, refetchOnWindowFocus: false },
     },
-    /**
-     * Every mutation reports its own failure. Without this, a rejected save is
-     * indistinguishable from a successful one — the button simply re-enables.
-     * Individual mutations can still add an `onError` for bespoke handling;
-     * this only guarantees the user always hears about it.
-     */
     mutationCache: new MutationCache({
         onError: (error, _variables, _context, mutation) => {
             if (mutation.options.meta?.silent) return;
-
-            // A 401 means the session expired; the auth gate already redirects.
             if (error instanceof ApiError && error.status === 401) return;
 
             const { title, description } = describeError(error, translate('common.action_failed'));
@@ -126,6 +114,7 @@ function Bootstrapped() {
                 <Route path="/templates" element={<TemplatesPage />} />
                 <Route path="/campaigns" element={<CampaignsPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/operations" element={<OperationsPage />} />
                 <Route path="/settings/*" element={<SettingsPage />} />
                 <Route path="/admin/*" element={<AdminPage />} />
             </Route>
@@ -138,7 +127,6 @@ function Bootstrapped() {
 const container = document.getElementById('root') as (HTMLElement & { _reactRoot?: ReturnType<typeof createRoot> }) | null;
 
 if (container) {
-    // Reuse the same React root across Vite HMR updates of this entry module.
     const root = (container._reactRoot ??= createRoot(container));
     root.render(
         <StrictMode>

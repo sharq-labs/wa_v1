@@ -11,6 +11,8 @@ use App\Models\WebhookEvent;
 use App\Models\WhatsAppAccount;
 use App\Models\WhatsAppTemplate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Turns a stored Meta webhook event into domain changes: inbound messages,
@@ -18,7 +20,10 @@ use Illuminate\Support\Facades\Log;
  */
 class WhatsAppEventProcessor
 {
-    public function __construct(protected InboundMessageService $inbound) {}
+    public function __construct(
+        protected InboundMessageService $inbound,
+        protected MetaMediaDownloader $mediaDownloader,
+    ) {}
 
     public function process(WebhookEvent $event): void
     {
@@ -57,7 +62,7 @@ class WhatsAppEventProcessor
         $profiles = collect($value['contacts'] ?? [])->keyBy('wa_id');
 
         foreach ($value['messages'] ?? [] as $message) {
-            $this->inbound->ingest($account, $this->normaliseMessage($message, $profiles));
+            $this->inbound->ingest($account, $this->normaliseMessage($account, $message, $profiles));
         }
 
         foreach ($value['statuses'] ?? [] as $status) {
@@ -76,7 +81,7 @@ class WhatsAppEventProcessor
         return WhatsAppAccount::query()->where('phone_number_id', $phoneNumberId)->first();
     }
 
-    protected function normaliseMessage(array $message, $profiles): array
+    protected function normaliseMessage(WhatsAppAccount $account, array $message, $profiles): array
     {
         $type = $message['type'] ?? 'unknown';
         $waId = $message['from'] ?? '';
@@ -106,6 +111,37 @@ class WhatsAppEventProcessor
             $payload['reply_id'] = $message['button']['payload'] ?? null;
         }
 
+        $mediaUrl = null;
+        $mediaMimeType = $message[$type]['mime_type'] ?? null;
+        if (in_array($type, ['image', 'video', 'audio', 'document'], true)) {
+            $mediaId = trim((string) ($message[$type]['id'] ?? ''));
+            if ($mediaId !== '') {
+                try {
+                    $download = $this->mediaDownloader->download($account, $mediaId);
+                    $mediaUrl = $download['url'];
+                    $mediaMimeType = $download['mime_type'];
+                    $payload['media'] = [
+                        'id' => $download['media_id'],
+                        'disk' => $download['disk'],
+                        'path' => $download['path'],
+                        'size' => $download['size'],
+                        'mime_type' => $download['mime_type'],
+                    ];
+                } catch (Throwable $e) {
+                    // Never drop the inbound message because the remote media
+                    // download failed. Keep the provider media id in raw payload
+                    // so an operator can retry/recover it later.
+                    $payload['media_download_error'] = Str::limit($e->getMessage(), 500);
+                    Log::warning('Inbound WhatsApp media download failed.', [
+                        'account_id' => $account->id,
+                        'media_id' => $mediaId,
+                        'message_id' => $message['id'] ?? null,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
         return [
             'provider_message_id' => $message['id'],
             'wa_id' => $waId,
@@ -113,8 +149,8 @@ class WhatsAppEventProcessor
             'profile_name' => $profiles[$waId]['profile']['name'] ?? null,
             'type' => $type,
             'text' => $text,
-            'media_url' => null, // media requires a follow-up Graph download; stored id kept in payload
-            'media_mime_type' => $message[$type]['mime_type'] ?? null,
+            'media_url' => $mediaUrl,
+            'media_mime_type' => $mediaMimeType,
             'payload' => $payload,
             'timestamp' => isset($message['timestamp']) ? (int) $message['timestamp'] : null,
         ];

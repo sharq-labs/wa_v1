@@ -58,6 +58,7 @@ class CampaignController extends ApiController
             $account->id,
             $data['audience_type'],
             $data['audience_config'] ?? [],
+            $template->category,
         ));
     }
 
@@ -104,6 +105,7 @@ class CampaignController extends ApiController
             $account->id,
             $campaign->audience_type,
             $campaign->audience_config ?? [],
+            $template->category,
         );
 
         return $this->success(
@@ -129,6 +131,7 @@ class CampaignController extends ApiController
                 $campaign->whatsapp_account_id,
                 $campaign->audience_type,
                 $campaign->audience_config ?? [],
+                $campaign->template?->category,
             )
             : null;
 
@@ -179,6 +182,7 @@ class CampaignController extends ApiController
             $campaign->whatsapp_account_id,
             $campaign->audience_type,
             $campaign->audience_config ?? [],
+            $campaign->template?->category,
         );
         if ($preview['eligible'] === 0) {
             return $this->error(__('No contacts are currently eligible to receive this WhatsApp campaign.'), $preview, 422);
@@ -192,7 +196,9 @@ class CampaignController extends ApiController
         $audit->log('campaign.send', $workspace, $request->user(), $campaign, [
             'scheduled_at' => $data['scheduled_at'] ?? 'now',
             'eligible_recipients' => $preview['eligible'],
-            'suppressed_recipients' => $preview['blocked_opt_out'] + $preview['blocked_no_consent'],
+            'suppressed_recipients' => $preview['blocked_opt_out']
+                + $preview['blocked_no_consent']
+                + ($preview['blocked_frequency'] ?? 0),
         ]);
 
         return $this->success($campaign->fresh(), __('Campaign scheduled.'));
@@ -265,8 +271,15 @@ class CampaignController extends ApiController
         return [
             'delivery_rate' => $sent > 0 ? round(($campaign->delivered_count / $sent) * 100, 1) : 0.0,
             'read_rate' => $sent > 0 ? round(($campaign->read_count / $sent) * 100, 1) : 0.0,
+            'reply_rate' => $sent > 0 ? round(($campaign->replied_count / $sent) * 100, 1) : 0.0,
+            'click_rate' => $sent > 0 ? round(($campaign->unique_click_count / $sent) * 100, 1) : 0.0,
+            'conversion_rate' => $sent > 0 ? round(($campaign->conversion_count / $sent) * 100, 1) : 0.0,
             'failure_rate' => $total > 0 ? round(($campaign->failed_count / $total) * 100, 1) : 0.0,
             'suppressed_count' => $campaign->recipients()->where('status', 'skipped')->count(),
+            'replied_count' => (int) $campaign->replied_count,
+            'unique_click_count' => (int) $campaign->unique_click_count,
+            'conversion_count' => (int) $campaign->conversion_count,
+            'conversion_value' => (float) $campaign->conversion_value,
         ];
     }
 }

@@ -10,7 +10,9 @@ use App\Services\Automation\NodeResult;
 use App\Services\Automation\VariableInterpolator;
 
 /**
- * Handles both Set Custom Field and Clear Custom Field.
+ * Handles both Set Custom Field and Clear Custom Field. The value model emits
+ * trigger events for actual changes regardless of whether the mutation came
+ * from the CRM, API or another automation.
  */
 class SetCustomFieldNodeHandler implements NodeHandlerInterface
 {
@@ -38,10 +40,12 @@ class SetCustomFieldNodeHandler implements NodeHandlerInterface
             return NodeResult::fail("Custom field [{$key}] does not exist.");
         }
 
+        $oldValue = $context->contact->customFieldValue($key);
+
         if ($node['type'] === NodeType::ClearCustomField->value) {
             $context->contact->setCustomFieldValue($field, null);
 
-            return NodeResult::next('next', ['cleared' => $key]);
+            return NodeResult::next('next', ['cleared' => $key, 'changed' => $oldValue !== null]);
         }
 
         $value = $this->interpolator->interpolate(
@@ -51,6 +55,6 @@ class SetCustomFieldNodeHandler implements NodeHandlerInterface
 
         $context->contact->setCustomFieldValue($field, $value);
 
-        return NodeResult::next('next', ['field' => $key, 'value' => $value]);
+        return NodeResult::next('next', ['field' => $key, 'value' => $value, 'changed' => $oldValue !== $value]);
     }
 }

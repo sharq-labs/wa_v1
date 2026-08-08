@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\AutomationRunStatus;
 use App\Models\Concerns\BelongsToWorkspace;
+use App\Services\Notifications\WorkspaceNotificationService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -45,6 +46,34 @@ class AutomationRun extends Model
     {
         static::creating(function (AutomationRun $run) {
             $run->uuid ??= (string) Str::uuid();
+        });
+
+        static::updated(function (AutomationRun $run): void {
+            if (! $run->wasChanged('status') || $run->status !== AutomationRunStatus::Failed) {
+                return;
+            }
+
+            $workspace = Workspace::query()->find($run->workspace_id);
+            if (! $workspace) {
+                return;
+            }
+
+            $automation = Automation::query()->find($run->automation_id);
+            app(WorkspaceNotificationService::class)->managers($workspace, [
+                'type' => 'automation.failed',
+                'title' => __('Automation run failed'),
+                'message' => __(':automation failed: :error', [
+                    'automation' => $automation?->name ?? __('Automation'),
+                    'error' => mb_strimwidth((string) ($run->error ?: __('Unknown error')), 0, 240, '…'),
+                ]),
+                'url' => url('/automations/'.$run->automation_id.'/runs'),
+                'severity' => 'error',
+                'meta' => [
+                    'automation_id' => $run->automation_id,
+                    'run_uuid' => $run->uuid,
+                    'contact_id' => $run->contact_id,
+                ],
+            ]);
         });
     }
 

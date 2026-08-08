@@ -10,7 +10,6 @@ export interface NodeMeta {
     color: string;
     description: string;
     defaults: Record<string, any>;
-    // Static handles; condition/buttons compute theirs dynamically.
     handles?: { id: string; label: string }[];
 }
 
@@ -39,6 +38,54 @@ export const NODE_CATALOG: NodeMeta[] = [
         color: '#8b5cf6',
         description: 'Fires on the first message from a new contact',
         defaults: {},
+    },
+    {
+        type: 'trigger_tag_added',
+        label: 'Tag Added',
+        category: 'trigger',
+        color: '#8b5cf6',
+        description: 'Fires when a tag is added to a contact',
+        defaults: { tag_id: null, tag_name: '' },
+    },
+    {
+        type: 'trigger_tag_removed',
+        label: 'Tag Removed',
+        category: 'trigger',
+        color: '#8b5cf6',
+        description: 'Fires when a tag is removed from a contact',
+        defaults: { tag_id: null, tag_name: '' },
+    },
+    {
+        type: 'trigger_field_changed',
+        label: 'Field Changed',
+        category: 'trigger',
+        color: '#8b5cf6',
+        description: 'Fires when a contact custom field changes',
+        defaults: { field_key: '', change_type: 'any' },
+    },
+    {
+        type: 'trigger_webhook',
+        label: 'Signed Webhook',
+        category: 'trigger',
+        color: '#8b5cf6',
+        description: 'Fires from this automation’s signed webhook endpoint',
+        defaults: {},
+    },
+    {
+        type: 'trigger_scheduled',
+        label: 'Schedule',
+        category: 'trigger',
+        color: '#8b5cf6',
+        description: 'Runs on a recurring schedule for a contact audience',
+        defaults: {
+            frequency: 'daily',
+            time: '09:00',
+            weekday: 1,
+            timezone: '',
+            audience_type: 'all',
+            tag_id: null,
+            contact_id: null,
+        },
     },
 
     // Messages
@@ -168,6 +215,14 @@ export const NODE_CATALOG: NodeMeta[] = [
         color: '#d97706',
         description: 'Remove a tag from the contact',
         defaults: { tag_id: null, tag_name: '' },
+    },
+    {
+        type: 'goal',
+        label: 'Conversion Goal',
+        category: 'data',
+        color: '#d97706',
+        description: 'Record a conversion goal and optional value',
+        defaults: { goal_name: 'Conversion', value: '', currency: '' },
     },
     {
         type: 'http_request',
@@ -329,7 +384,6 @@ export const CATEGORY_LABELS: Record<NodeMeta['category'], string> = {
     control: 'Control',
 };
 
-/** Source handles for a node instance (buttons/split derive from config). */
 export function nodeHandles(type: string, config: Record<string, any>): { id: string; label: string }[] {
     if (type === 'send_buttons') {
         return (config.buttons ?? []).map((b: any, i: number) => ({
@@ -348,7 +402,6 @@ export function nodeHandles(type: string, config: Record<string, any>): { id: st
     const meta = NODE_META[type];
     if (meta?.handles) return meta.handles;
 
-    // Terminal nodes have no outgoing edge.
     if (['stop', 'close_conversation'].includes(type)) return [];
 
     return [{ id: 'next', label: '' }];

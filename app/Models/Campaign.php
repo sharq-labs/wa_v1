@@ -30,6 +30,10 @@ class Campaign extends Model
         'sent_count',
         'delivered_count',
         'read_count',
+        'replied_count',
+        'unique_click_count',
+        'conversion_count',
+        'conversion_value',
         'failed_count',
     ];
 
@@ -42,6 +46,7 @@ class Campaign extends Model
             'scheduled_at' => 'datetime',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
+            'conversion_value' => 'decimal:4',
         ];
     }
 

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\AutomationStatus;
 use App\Enums\ConversationStatus;
 use App\Models\Concerns\BelongsToWorkspace;
+use App\Services\Notifications\WorkspaceNotificationService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,6 +30,36 @@ class Conversation extends Model
         'closed_at',
         'first_agent_reply_at',
     ];
+
+    protected static function booted(): void
+    {
+        static::updated(function (Conversation $conversation): void {
+            if (! $conversation->wasChanged('assigned_user_id') || ! $conversation->assigned_user_id) {
+                return;
+            }
+
+            $workspace = Workspace::query()->find($conversation->workspace_id);
+            $user = User::query()->find($conversation->assigned_user_id);
+            if (! $workspace || ! $user) {
+                return;
+            }
+
+            $contact = Contact::query()->find($conversation->contact_id);
+            app(WorkspaceNotificationService::class)->user($workspace, $user, [
+                'type' => 'conversation.assigned',
+                'title' => __('Conversation assigned to you'),
+                'message' => __('You have been assigned a conversation with :contact.', [
+                    'contact' => $contact?->full_name ?? __('a customer'),
+                ]),
+                'url' => url('/inbox?conversation='.$conversation->id),
+                'severity' => 'info',
+                'meta' => [
+                    'conversation_id' => $conversation->id,
+                    'contact_id' => $conversation->contact_id,
+                ],
+            ]);
+        });
+    }
 
     protected function casts(): array
     {

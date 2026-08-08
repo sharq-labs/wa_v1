@@ -17,12 +17,24 @@ class CampaignRecipient extends Model
         'status',
         'error_message',
         'sent_at',
+        'replied_at',
+        'click_count',
+        'first_clicked_at',
+        'last_clicked_at',
+        'converted_at',
+        'conversion_name',
+        'conversion_value',
     ];
 
     protected function casts(): array
     {
         return [
             'sent_at' => 'datetime',
+            'replied_at' => 'datetime',
+            'first_clicked_at' => 'datetime',
+            'last_clicked_at' => 'datetime',
+            'converted_at' => 'datetime',
+            'conversion_value' => 'decimal:4',
         ];
     }
 

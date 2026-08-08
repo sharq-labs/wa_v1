@@ -3,6 +3,7 @@ import { clsx } from 'clsx';
 import {
     BarChart3,
     Bot,
+    HeartPulse,
     Inbox,
     Languages,
     LayoutDashboard,
@@ -137,7 +138,10 @@ export default function Layout() {
 
     const growItems: NavItem[] = [{ to: '/analytics', icon: BarChart3, label: t('nav.analytics') }];
 
-    const systemItems: NavItem[] = [{ to: '/settings', icon: Settings, label: t('nav.settings') }];
+    const systemItems: NavItem[] = [
+        { to: '/operations', icon: HeartPulse, label: locale === 'ar' ? 'مركز التشغيل' : 'Operations' },
+        { to: '/settings', icon: Settings, label: t('nav.settings') },
+    ];
     if (user?.is_super_admin) {
         systemItems.push({ to: '/admin', icon: Shield, label: t('nav.admin') });
     }
@@ -166,7 +170,6 @@ export default function Layout() {
                     </button>
                 </div>
 
-                {/* Only show a switcher when the user actually has more than one workspace. */}
                 {multiWorkspace && (
                     <div className="relative mt-4">
                         <label className="mb-1.5 block px-0.5 text-[12.5px] font-bold text-slate-400" htmlFor="workspace-switcher">

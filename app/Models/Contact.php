@@ -53,7 +53,9 @@ class Contact extends Model
 
     public function tags(): BelongsToMany
     {
-        return $this->belongsToMany(Tag::class, 'contact_tag')->withTimestamps();
+        return $this->belongsToMany(Tag::class, 'contact_tag')
+            ->using(ContactTag::class)
+            ->withTimestamps();
     }
 
     public function customFieldValues(): HasMany
@@ -80,6 +82,7 @@ class Contact extends Model
 
     public function customFieldValue(string $key): ?string
     {
+        $this->loadMissing('customFieldValues.customField');
         $value = $this->customFieldValues
             ->first(fn (ContactCustomFieldValue $v) => $v->customField && $v->customField->key === $key);
 

@@ -11,7 +11,8 @@ use App\Services\Automation\NodeResult;
 
 /**
  * Handles Add Tag and Remove Tag. Idempotent: adding an existing tag or
- * removing a missing one is a no-op.
+ * removing a missing one is a no-op. ContactTag pivot events fan out any
+ * genuine mutations to non-message automation triggers.
  */
 class TagNodeHandler implements NodeHandlerInterface
 {
@@ -45,15 +46,20 @@ class TagNodeHandler implements NodeHandlerInterface
         }
 
         if ($node['type'] === NodeType::AddTag->value) {
-            $context->contact->tags()->syncWithoutDetaching([$tag->id]);
+            $changes = $context->contact->tags()->syncWithoutDetaching([$tag->id]);
             $action = 'added';
+            $changed = ($changes['attached'] ?? []) !== [];
         } else {
-            $context->contact->tags()->detach($tag->id);
+            $changed = $context->contact->tags()->detach($tag->id) > 0;
             $action = 'removed';
         }
 
         broadcast(new ContactUpdated($context->workspace->id, ['contact_id' => $context->contact->id]));
 
-        return NodeResult::next('next', ['tag' => $tag->name, 'action' => $action]);
+        return NodeResult::next('next', [
+            'tag' => $tag->name,
+            'action' => $action,
+            'changed' => $changed,
+        ]);
     }
 }

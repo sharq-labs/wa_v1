@@ -36,6 +36,7 @@ class NodeHandlerRegistry
         NodeType::HttpRequest->value => Handlers\HttpRequestNodeHandler::class,
         NodeType::SendWebhook->value => Handlers\HttpRequestNodeHandler::class,
         NodeType::AddNote->value => Handlers\AddNoteNodeHandler::class,
+        NodeType::Goal->value => Handlers\GoalNodeHandler::class,
         NodeType::Condition->value => Handlers\ConditionNodeHandler::class,
         NodeType::Delay->value => Handlers\DelayNodeHandler::class,
         NodeType::WaitUntil->value => Handlers\WaitUntilNodeHandler::class,
