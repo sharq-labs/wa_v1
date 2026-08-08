@@ -5,6 +5,7 @@ use App\Models\Automation;
 use App\Models\Contact;
 use App\Models\Plan;
 use App\Models\Subscription;
+use App\Services\Billing\EntitlementsService;
 
 function subscribeTo(array $ctx, array $features): void
 {
@@ -97,4 +98,63 @@ it('separates platform subscription from Meta usage in the billing summary', fun
 
     expect($response->json('data.platform.plan'))->not->toBeNull()
         ->and($response->json('data.meta_usage.billing_owner'))->toBe('meta');
+});
+
+it('does not grant paid plan features after the subscription period ends', function () {
+    $ctx = createWorkspaceContext();
+    $plan = Plan::query()->create([
+        'name' => 'Expired Pro',
+        'slug' => 'expired-pro-'.uniqid(),
+        'is_active' => true,
+    ]);
+    $plan->features()->create(['key' => 'campaigns', 'value' => 'true']);
+    $plan->features()->create(['key' => 'whatsapp_numbers', 'value' => '9']);
+
+    Subscription::query()->create([
+        'workspace_id' => $ctx['workspace']->id,
+        'plan_id' => $plan->id,
+        'status' => 'active',
+        'billing_cycle' => 'monthly',
+        'current_period_start' => now()->subMonth(),
+        'current_period_end' => now()->subSecond(),
+    ]);
+
+    $workspace = $ctx['workspace']->fresh();
+    $entitlements = app(EntitlementsService::class);
+
+    expect($workspace->subscription->isActive())->toBeFalse()
+        ->and($entitlements->hasFeature($workspace, 'campaigns'))->toBeFalse()
+        ->and($entitlements->limit($workspace, 'whatsapp_numbers', 1))->toBe(1);
+
+    $response = $this->actingAs($ctx['user'])
+        ->getJson("/api/workspaces/{$workspace->id}/billing/summary")
+        ->assertOk();
+
+    expect($response->json('data.platform.subscription.entitled'))->toBeFalse();
+});
+
+it('does not grant paid plan features after a subscription is cancelled', function () {
+    $ctx = createWorkspaceContext();
+    $plan = Plan::query()->create([
+        'name' => 'Cancelled Pro',
+        'slug' => 'cancelled-pro-'.uniqid(),
+        'is_active' => true,
+    ]);
+    $plan->features()->create(['key' => 'api_access', 'value' => 'true']);
+
+    Subscription::query()->create([
+        'workspace_id' => $ctx['workspace']->id,
+        'plan_id' => $plan->id,
+        'status' => 'cancelled',
+        'billing_cycle' => 'monthly',
+        'current_period_start' => now()->subDay(),
+        'current_period_end' => now()->addMonth(),
+        'cancelled_at' => now(),
+    ]);
+
+    $workspace = $ctx['workspace']->fresh();
+    $entitlements = app(EntitlementsService::class);
+
+    expect($workspace->subscription->isActive())->toBeFalse()
+        ->and($entitlements->canUseApi($workspace))->toBeFalse();
 });
