@@ -38,8 +38,7 @@ it('emits tag events only when published automations listen for the mutation', f
     $contact->tags()->attach($tag->id);
 
     Queue::assertPushed(ProcessAutomationEvent::class, 1);
-    Queue::assertPushed(ProcessAutomationEvent::class, fn ($job) =>
-        $job->eventType === NodeType::TriggerTagAdded->value
+    Queue::assertPushed(ProcessAutomationEvent::class, fn ($job) => $job->eventType === NodeType::TriggerTagAdded->value
         && $job->contactId === $contact->id
         && ($job->payload['tag_id'] ?? null) === $tag->id
     );
@@ -71,8 +70,7 @@ it('emits a field changed event only for real changes with a published listener'
     $contact->setCustomFieldValue($field, 'qualified');
 
     Queue::assertPushed(ProcessAutomationEvent::class, 2);
-    Queue::assertPushed(ProcessAutomationEvent::class, fn ($job) =>
-        $job->eventType === NodeType::TriggerFieldChanged->value
+    Queue::assertPushed(ProcessAutomationEvent::class, fn ($job) => $job->eventType === NodeType::TriggerFieldChanged->value
         && ($job->payload['field_key'] ?? null) === 'lead_status'
         && ($job->payload['old_value'] ?? null) === 'new'
         && ($job->payload['new_value'] ?? null) === 'qualified'
@@ -160,8 +158,7 @@ it('rotates an encrypted webhook secret and accepts only valid signed payloads',
         $raw,
     )->assertStatus(202);
 
-    Queue::assertPushed(ProcessAutomationEvent::class, fn ($job) =>
-        $job->eventType === NodeType::TriggerWebhook->value
+    Queue::assertPushed(ProcessAutomationEvent::class, fn ($job) => $job->eventType === NodeType::TriggerWebhook->value
         && $job->contactId === $contact->id
         && ($job->payload['automation_id'] ?? null) === $automation->id
     );
@@ -212,8 +209,7 @@ it('dispatches a due scheduled automation only once per minute', function () {
     $this->artisan('automation:dispatch-scheduled')->assertExitCode(0);
 
     Queue::assertPushed(ProcessAutomationEvent::class, 1);
-    Queue::assertPushed(ProcessAutomationEvent::class, fn ($job) =>
-        $job->eventType === NodeType::TriggerScheduled->value
+    Queue::assertPushed(ProcessAutomationEvent::class, fn ($job) => $job->eventType === NodeType::TriggerScheduled->value
         && $job->contactId === $contact->id
         && ($job->payload['automation_id'] ?? null) === $automation->id
     );
