@@ -17,12 +17,15 @@ use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\WhatsAppAccount;
+use App\Services\Campaigns\CampaignAttributionService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /** Normalised inbound message ingestion. Idempotent on provider_message_id. */
 class InboundMessageService
 {
+    public function __construct(protected CampaignAttributionService $campaignAttribution) {}
+
     public function ingest(WhatsAppAccount $account, array $data): ?Message
     {
         $existing = Message::query()
@@ -76,10 +79,12 @@ class InboundMessageService
                 return [$message, $contact, $conversation, $isNewContact, $consentChanged];
             });
         } catch (UniqueConstraintViolationException) {
-            // Database uniqueness is the final line of defence when two workers
-            // race past the optimistic lookup above.
             return null;
         }
+
+        // A reply after a campaign is a business outcome independent from bot
+        // execution. Attribute it before dispatching any follow-up automation.
+        $this->campaignAttribution->attributeReply($contact, $message);
 
         if ($consentChanged) {
             broadcast(new ContactUpdated($account->workspace_id, [
