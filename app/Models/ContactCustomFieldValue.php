@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Enums\NodeType;
-use App\Jobs\ProcessAutomationEvent;
+use App\Services\Automation\AutomationEventPublisher;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -57,7 +57,7 @@ class ContactCustomFieldValue extends Model
             return;
         }
 
-        ProcessAutomationEvent::dispatch(
+        app(AutomationEventPublisher::class)->publish(
             $contact->workspace_id,
             NodeType::TriggerFieldChanged->value,
             $contact->id,
@@ -68,6 +68,6 @@ class ContactCustomFieldValue extends Model
                 'new_value' => $newValue,
                 'source' => 'custom_field_model',
             ],
-        )->afterCommit();
+        );
     }
 }
