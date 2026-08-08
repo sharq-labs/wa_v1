@@ -29,6 +29,7 @@ while (true) {
 
     if ($size === false) {
         usleep(250000);
+
         continue;
     }
 
