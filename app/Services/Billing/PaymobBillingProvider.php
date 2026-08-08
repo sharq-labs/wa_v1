@@ -8,7 +8,6 @@ use App\Models\Subscription;
 use App\Models\Workspace;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
 
@@ -60,20 +59,10 @@ class PaymobBillingProvider implements BillingProviderInterface
         $nameParts = preg_split('/\s+/u', trim((string) ($owner?->name ?: $workspace->name)), 2) ?: [];
         $firstName = trim((string) ($customer['first_name'] ?? ($nameParts[0] ?? 'Customer')));
         $lastName = trim((string) ($customer['last_name'] ?? ($nameParts[1] ?? 'Customer')));
-        $email = trim((string) ($customer['email'] ?? $owner?->email ?? ''));
-        $phone = trim((string) ($customer['phone_number'] ?? $workspace->setting('billing.phone_number', '')));
-
-        if ($phone === '') {
-            $payment->update([
-                'status' => 'failed',
-                'failure_reason' => 'Billing phone number is required before starting Paymob checkout.',
-                'failed_at' => now(),
-            ]);
-
-            throw ValidationException::withMessages([
-                'phone_number' => __('A billing phone number is required for Paymob checkout.'),
-            ]);
-        }
+        $email = trim((string) ($customer['email'] ?? $owner?->email ?? 'NA'));
+        $phone = trim((string) ($customer['phone_number']
+            ?? $workspace->setting('billing.phone_number')
+            ?? config('billing.paymob.default_phone', 'NA')));
 
         $payload = [
             'amount' => $amount,
@@ -91,10 +80,10 @@ class PaymobBillingProvider implements BillingProviderInterface
                 'last_name' => $lastName ?: 'Customer',
                 'street' => 'NA',
                 'building' => 'NA',
-                'phone_number' => $phone,
+                'phone_number' => $phone !== '' ? $phone : 'NA',
                 'city' => (string) ($customer['city'] ?? $workspace->setting('billing.city', 'NA')),
                 'country' => strtoupper((string) ($customer['country'] ?? $workspace->country ?? 'EG')),
-                'email' => $email,
+                'email' => $email !== '' ? $email : 'NA',
                 'floor' => 'NA',
                 'state' => (string) ($customer['state'] ?? 'NA'),
             ],
