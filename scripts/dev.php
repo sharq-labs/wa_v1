@@ -7,7 +7,6 @@
  * so local Windows development uses queue:work instead. Linux/macOS keep
  * Horizon for parity with production-like queue supervision.
  */
-
 function fail(string $message): never
 {
     fwrite(STDERR, "\n[dev] ERROR: {$message}\n\n");
