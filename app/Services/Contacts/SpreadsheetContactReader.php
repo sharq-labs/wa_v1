@@ -111,7 +111,7 @@ class SpreadsheetContactReader
             throw new RuntimeException('XLSX import requires the PHP zip extension.');
         }
 
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
         if ($zip->open($path) !== true) {
             throw new RuntimeException('Unable to open XLSX import file.');
         }
@@ -199,6 +199,7 @@ class SpreadsheetContactReader
     protected function uniqueHeaders(array $headers): array
     {
         $used = [];
+
         return array_map(function ($value, $index) use (&$used) {
             $header = trim((string) $value);
             if ($header === '') {
@@ -210,6 +211,7 @@ class SpreadsheetContactReader
                 $header = $base.' '.$counter++;
             }
             $used[mb_strtolower($header)] = true;
+
             return $header;
         }, $headers, array_keys($headers));
     }
@@ -237,6 +239,7 @@ class SpreadsheetContactReader
                 return false;
             }
         }
+
         return true;
     }
 
