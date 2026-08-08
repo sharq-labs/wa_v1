@@ -41,6 +41,7 @@ enum NodeType: string
     case HttpRequest = 'http_request';
     case SendWebhook = 'send_webhook';
     case AddNote = 'add_note';
+    case Goal = 'goal';
 
     // Control
     case Condition = 'condition';
