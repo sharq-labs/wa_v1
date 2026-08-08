@@ -117,7 +117,7 @@ export default function OperationsPage() {
                     uploaded={uploaded}
                     mapping={mapping}
                     setMapping={setMapping}
-                    onFile={(file) => upload.mutate(file)}
+                    onFile={(file: File) => upload.mutate(file)}
                     uploading={upload.isPending}
                     onStart={() => startImport.mutate()}
                     starting={startImport.isPending}
@@ -129,7 +129,7 @@ export default function OperationsPage() {
                     items={notifications.data?.items ?? []}
                     unread={notifications.data?.meta.unread ?? 0}
                     loading={notifications.isLoading}
-                    onRead={(id) => read.mutate(id)}
+                    onRead={(id: string) => read.mutate(id)}
                     onReadAll={() => readAll.mutate()}
                     ar={ar}
                 />
@@ -218,7 +218,7 @@ function ImportsTab({ items, loading, uploaded, mapping, setMapping, onFile, upl
                                 <label className="mb-1 block text-xs font-semibold text-slate-500">{target === 'phone_number' ? `${label} *` : label}</label>
                                 <Select value={mapping[target] ?? ''} onChange={(e) => setMapping((prev: Record<string, string>) => ({ ...prev, [target]: e.target.value }))}>
                                     <option value="">—</option>
-                                    {uploaded.headers.map((header) => <option key={header} value={header}>{header}</option>)}
+                                    {uploaded.headers.map((header: string) => <option key={header} value={header}>{header}</option>)}
                                 </Select>
                             </div>
                         ))}
