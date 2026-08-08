@@ -2,7 +2,7 @@ import { AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import { useEffect, type ReactNode } from 'react';
 import { clsx } from 'clsx';
 
-type NoticeTone = 'success' | 'error' | 'info';
+type NoticeTone = 'success' | 'error' | 'warning' | 'info';
 
 const TONE: Record<
     NoticeTone,
@@ -19,6 +19,12 @@ const TONE: Record<
         iconWrap: 'bg-red-50 text-red-600',
         Icon: AlertTriangle,
         title: 'text-red-900',
+    },
+    warning: {
+        wrap: 'border-amber-200/80 bg-white shadow-amber-100/80',
+        iconWrap: 'bg-amber-50 text-amber-600',
+        Icon: AlertTriangle,
+        title: 'text-amber-900',
     },
     info: {
         wrap: 'border-sky-200/80 bg-white shadow-sky-100/80',
