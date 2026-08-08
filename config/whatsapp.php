@@ -15,9 +15,35 @@ return [
     'opt_in_keywords' => $keywordList('WHATSAPP_OPT_IN_KEYWORDS', 'start,subscribe,اشترك,ابدأ'),
     'opt_out_keywords' => $keywordList('WHATSAPP_OPT_OUT_KEYWORDS', 'stop,unsubscribe,توقف,إلغاء الاشتراك,الغاء الاشتراك'),
 
-    // Disk used for outbound media uploaded from the shared inbox. Use an
-    // S3-compatible public/signed-delivery disk in production.
+    // Disk used for both outbound uploads and provider-downloaded inbound media.
+    // Use S3-compatible object storage in production when multiple app workers
+    // need the same files.
     'media_disk' => env('WHATSAPP_MEDIA_DISK', 'public'),
+
+    'inbound_media' => [
+        'max_bytes' => (int) env('WHATSAPP_INBOUND_MEDIA_MAX_BYTES', 32 * 1024 * 1024),
+        'download_timeout' => (int) env('WHATSAPP_INBOUND_MEDIA_TIMEOUT', 45),
+        // Meta media download URLs currently resolve through these official CDN
+        // families. Keep this configurable in case Meta changes delivery hosts.
+        'allowed_host_suffixes' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env(
+                'WHATSAPP_INBOUND_MEDIA_ALLOWED_HOSTS',
+                'facebook.com,fbcdn.net,fbsbx.com,whatsapp.net',
+            )),
+        ))),
+        'allowed_mime_prefixes' => [
+            'image/',
+            'video/',
+            'audio/',
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'text/plain',
+        ],
+    ],
 
     'max_automation_steps' => (int) env('MAX_AUTOMATION_STEPS', 200),
     'max_automation_depth' => (int) env('MAX_AUTOMATION_DEPTH', 5),
