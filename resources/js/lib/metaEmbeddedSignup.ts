@@ -140,7 +140,9 @@ export async function launchMetaEmbeddedSignup(
     config: MetaEmbeddedSignupConfig,
     timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<MetaEmbeddedSignupResult> {
-    if (!config.enabled || !config.app_id || !config.config_id) {
+    const configId = config.config_id;
+
+    if (!config.enabled || !config.app_id || !configId) {
         throw new Error('Meta Embedded Signup is not fully configured.');
     }
 
@@ -227,7 +229,7 @@ export async function launchMetaEmbeddedSignup(
                 finishIfReady();
             },
             {
-                config_id: config.config_id,
+                config_id: configId,
                 response_type: 'code',
                 override_default_response_type: true,
                 extras: {
