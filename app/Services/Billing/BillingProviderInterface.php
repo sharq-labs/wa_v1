@@ -16,11 +16,19 @@ interface BillingProviderInterface
 {
     public function name(): string;
 
-    /** Start (or switch to) a subscription for the workspace. */
-    public function subscribe(Workspace $workspace, Plan $plan, string $billingCycle = 'monthly'): Subscription;
+    /**
+     * Start a plan purchase/change. Payment-backed providers return a checkout
+     * result and MUST NOT grant plan entitlements before confirmed payment.
+     */
+    public function subscribe(
+        Workspace $workspace,
+        Plan $plan,
+        string $billingCycle = 'monthly',
+        array $customer = [],
+    ): BillingCheckoutResult;
 
     public function cancel(Subscription $subscription): Subscription;
 
-    /** Provider-hosted checkout/portal URL if the provider has one. */
+    /** Provider-hosted management portal URL if the provider has one. */
     public function portalUrl(Workspace $workspace): ?string;
 }
