@@ -34,7 +34,7 @@ class OperationalNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $mail = (new MailMessage())
+        $mail = (new MailMessage)
             ->subject((string) ($this->payload['title'] ?? config('app.name').' notification'))
             ->line((string) ($this->payload['message'] ?? ''));
 
