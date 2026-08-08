@@ -1,12 +1,23 @@
-import { PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react';
+import { ChevronDown, MessageCircleMore, PanelLeftClose, PanelLeftOpen, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Input } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
-import { NODE_CATALOG, type NodeMeta } from './nodeCatalog';
+import { NODE_CATALOG, NODE_META, type NodeMeta } from './nodeCatalog';
 import { nodeDescKey, nodeLabelKey } from './nodeI18n';
 import { CATEGORY_ICONS, nodeIcon, solidIconTileStyle } from './nodeIcons';
 
 const CATEGORIES = ['trigger', 'message', 'data', 'routing', 'control'] as NodeMeta['category'][];
+const MESSAGE_TYPES = [
+    'send_text',
+    'send_image',
+    'send_video',
+    'send_audio',
+    'send_document',
+    'send_template',
+    'send_buttons',
+    'send_list',
+    'ask_question',
+];
 
 const CATEGORY_KEYS: Record<NodeMeta['category'], string> = {
     trigger: 'automations.cat_trigger',
@@ -25,8 +36,9 @@ export default function NodeLibrary({
     collapsed?: boolean;
     onToggleCollapsed?: () => void;
 }) {
-    const { t } = useI18n();
+    const { t, locale } = useI18n();
     const [search, setSearch] = useState('');
+    const [messagePickerOpen, setMessagePickerOpen] = useState(false);
 
     const grouped = useMemo(() => {
         const q = search.trim().toLowerCase();
@@ -90,6 +102,62 @@ export default function NodeLibrary({
                     className="!rounded-xl !border-slate-200 !bg-slate-50 !py-2 text-sm"
                 />
             </div>
+
+            {!search && (
+                <div className="border-b border-slate-200/80 bg-white p-2.5">
+                    <button
+                        type="button"
+                        onClick={() => setMessagePickerOpen((value) => !value)}
+                        className="flex w-full items-center gap-2.5 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-3 py-2.5 text-start transition hover:border-emerald-200 hover:bg-emerald-50"
+                    >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+                            <MessageCircleMore size={17} strokeWidth={2.4} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                            <span className="block text-[13px] font-bold text-emerald-950">
+                                {locale === 'ar' ? 'رسالة واتساب' : 'WhatsApp Message'}
+                            </span>
+                            <span className="mt-0.5 block text-[10px] text-emerald-700/80">
+                                {locale === 'ar' ? 'نص، صورة، أزرار، قائمة أو Template' : 'Text, media, buttons, list or template'}
+                            </span>
+                        </span>
+                        <ChevronDown
+                            size={15}
+                            className={`text-emerald-700 transition ${messagePickerOpen ? 'rotate-180' : ''}`}
+                        />
+                    </button>
+
+                    {messagePickerOpen && (
+                        <div className="mt-2 grid grid-cols-2 gap-1.5">
+                            {MESSAGE_TYPES.map((type) => {
+                                const meta = NODE_META[type];
+                                const Icon = nodeIcon(type);
+                                return (
+                                    <button
+                                        key={type}
+                                        type="button"
+                                        onClick={() => {
+                                            onAdd(type);
+                                            setMessagePickerOpen(false);
+                                        }}
+                                        className="flex min-w-0 items-center gap-1.5 rounded-xl border border-slate-100 bg-slate-50 px-2 py-2 text-start transition hover:border-slate-200 hover:bg-white hover:shadow-sm"
+                                    >
+                                        <span
+                                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg shadow-sm"
+                                            style={solidIconTileStyle(meta?.color ?? '#16a34a')}
+                                        >
+                                            <Icon size={12} strokeWidth={2.4} />
+                                        </span>
+                                        <span className="min-w-0 truncate text-[10.5px] font-semibold text-slate-700">
+                                            {t(nodeLabelKey(type))}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className="flex-1 overflow-y-auto px-2.5 py-3">
                 {grouped.map(
