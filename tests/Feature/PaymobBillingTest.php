@@ -252,3 +252,52 @@ it('is idempotent when Paymob retries a successful transaction callback', functi
     expect(Subscription::query()->where('workspace_id', $ctx['workspace']->id)->count())->toBe(1)
         ->and(BillingPayment::query()->where('merchant_reference', 'wf-test-duplicate')->count())->toBe(1);
 });
+
+it('refuses a valid callback when its correlation identifiers point to different payments', function () {
+    configurePaymobForTest();
+    $first = createWorkspaceContext();
+    $second = createWorkspaceContext();
+    $plan = paymobTestPlan();
+
+    $expected = BillingPayment::query()->create([
+        'workspace_id' => $first['workspace']->id,
+        'plan_id' => $plan->id,
+        'provider' => 'paymob',
+        'merchant_reference' => 'wf-test-correlation-original',
+        'provider_reference' => 'intention_original',
+        'status' => 'pending',
+        'billing_cycle' => 'monthly',
+        'amount_minor' => $plan->price_monthly,
+        'currency' => 'EGP',
+    ]);
+
+    $other = BillingPayment::query()->create([
+        'workspace_id' => $second['workspace']->id,
+        'plan_id' => $plan->id,
+        'provider' => 'paymob',
+        'merchant_reference' => 'wf-test-correlation-other',
+        'provider_reference' => 'intention_other',
+        'status' => 'pending',
+        'billing_cycle' => 'monthly',
+        'amount_minor' => $plan->price_monthly,
+        'currency' => 'EGP',
+    ]);
+
+    $object = paymobTransactionObject($expected, [
+        'extras' => [
+            'billing_payment_id' => $other->id,
+            'merchant_reference' => $expected->merchant_reference,
+        ],
+    ]);
+    $hmac = paymobTestHmac($object);
+
+    $this->postJson('/api/webhooks/paymob/transaction?hmac='.$hmac, [
+        'type' => 'TRANSACTION',
+        'obj' => $object,
+    ])->assertStatus(202)->assertJsonPath('unmatched', true);
+
+    expect($expected->fresh()->status)->toBe('pending')
+        ->and($expected->fresh()->subscription_id)->toBeNull()
+        ->and($other->fresh()->status)->toBe('pending')
+        ->and($other->fresh()->subscription_id)->toBeNull();
+});

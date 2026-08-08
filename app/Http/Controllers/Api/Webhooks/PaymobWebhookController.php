@@ -53,9 +53,12 @@ class PaymobWebhookController extends Controller
         if (! $payment) {
             // A valid Paymob callback that cannot be correlated should not be
             // retried forever. Keep it visible in logs for operator review.
-            Log::error('Paymob callback could not be correlated to a billing payment.', [
+            Log::error('Paymob callback could not be correlated to one billing payment.', [
                 'transaction_id' => $transactionId ?: null,
                 'merchant_reference' => $this->merchantReference($object),
+                'billing_payment_id' => data_get($object, 'payment_key_claims.extra.billing_payment_id')
+                    ?? data_get($object, 'extras.billing_payment_id')
+                    ?? data_get($object, 'extra.billing_payment_id'),
             ]);
 
             return response()->json(['ok' => true, 'unmatched' => true], 202);
@@ -120,6 +123,36 @@ class PaymobWebhookController extends Controller
 
     protected function resolvePayment(array $object): ?BillingPayment
     {
+        $candidates = collect();
+
+        // Prefer opaque provider / merchant references. The numeric internal ID
+        // is accepted only as an additional correlator; conflicting identifiers
+        // must never activate a different workspace payment.
+        $merchantReference = $this->merchantReference($object);
+        if ($merchantReference !== null) {
+            $payment = BillingPayment::query()
+                ->where('provider', 'paymob')
+                ->where('merchant_reference', $merchantReference)
+                ->first();
+            if ($payment) {
+                $candidates->put($payment->id, $payment);
+            }
+        }
+
+        $providerReference = data_get($object, 'payment_key_claims.extra.intention_id')
+            ?? data_get($object, 'intention_id')
+            ?? data_get($object, 'intention.id');
+
+        if (is_scalar($providerReference) && (string) $providerReference !== '') {
+            $payment = BillingPayment::query()
+                ->where('provider', 'paymob')
+                ->where('provider_reference', (string) $providerReference)
+                ->first();
+            if ($payment) {
+                $candidates->put($payment->id, $payment);
+            }
+        }
+
         $paymentId = data_get($object, 'payment_key_claims.extra.billing_payment_id')
             ?? data_get($object, 'extras.billing_payment_id')
             ?? data_get($object, 'extra.billing_payment_id');
@@ -129,33 +162,11 @@ class PaymobWebhookController extends Controller
                 ->where('provider', 'paymob')
                 ->find((int) $paymentId);
             if ($payment) {
-                return $payment;
+                $candidates->put($payment->id, $payment);
             }
         }
 
-        $merchantReference = $this->merchantReference($object);
-        if ($merchantReference !== null) {
-            $payment = BillingPayment::query()
-                ->where('provider', 'paymob')
-                ->where('merchant_reference', $merchantReference)
-                ->first();
-            if ($payment) {
-                return $payment;
-            }
-        }
-
-        $providerReference = data_get($object, 'payment_key_claims.extra.intention_id')
-            ?? data_get($object, 'intention_id')
-            ?? data_get($object, 'intention.id');
-
-        if (is_scalar($providerReference) && (string) $providerReference !== '') {
-            return BillingPayment::query()
-                ->where('provider', 'paymob')
-                ->where('provider_reference', (string) $providerReference)
-                ->first();
-        }
-
-        return null;
+        return $candidates->count() === 1 ? $candidates->first() : null;
     }
 
     protected function merchantReference(array $object): ?string

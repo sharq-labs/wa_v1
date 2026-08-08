@@ -3,6 +3,7 @@
 namespace App\Services\Billing;
 
 use App\Enums\WorkspaceRole;
+use App\Models\Subscription;
 use App\Models\SubscriptionUsage;
 use App\Models\Workspace;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +18,7 @@ class EntitlementsService
 
     public function limit(Workspace $workspace, string $key, int $default = 0): ?int
     {
-        $plan = $workspace->subscription?->plan;
+        $plan = $this->entitlementSubscription($workspace)?->plan;
         if (! $plan) {
             return $default;
         }
@@ -35,10 +36,17 @@ class EntitlementsService
 
     public function hasFeature(Workspace $workspace, string $key): bool
     {
-        $value = $workspace->subscription?->plan?->feature($key);
+        $value = $this->entitlementSubscription($workspace)?->plan?->feature($key);
 
         return $value === 'true' || $value === '1' || $value === self::UNLIMITED
             || (is_numeric($value) && (int) $value > 0);
+    }
+
+    protected function entitlementSubscription(Workspace $workspace): ?Subscription
+    {
+        $subscription = $workspace->subscription;
+
+        return $subscription?->isActive() ? $subscription : null;
     }
 
     protected function withinLimit(Workspace $workspace, string $key, int $currentCount, int $default = 0): bool
@@ -141,6 +149,7 @@ class EntitlementsService
                 'status' => $subscription->status,
                 'billing_cycle' => $subscription->billing_cycle,
                 'current_period_end' => $subscription->current_period_end?->toIso8601String(),
+                'entitled' => $subscription->isActive(),
             ] : null,
             'usage' => [
                 'whatsapp_numbers' => [
