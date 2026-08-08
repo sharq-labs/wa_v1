@@ -42,10 +42,15 @@ import BuilderNotice from './BuilderNotice';
 import FlowNodeComponent from './FlowNode';
 import NodeLibrary from './NodeLibrary';
 import NodeSettingsPanel from './NodeSettingsPanel';
+import QuickAddEdge from './QuickAddEdge';
 import SimulatorDrawer from './SimulatorDrawer';
-import { NODE_META } from './nodeCatalog';
+import StarterRecipePicker from './StarterRecipePicker';
+import { detectWhatsAppWindowRisks } from './flowSafety';
+import { NODE_META, nodeHandles } from './nodeCatalog';
+import { createStarterRecipe, type StarterRecipeKey } from './starterRecipes';
 
 const nodeTypes = { flowNode: FlowNodeComponent };
+const edgeTypes = { quickAdd: QuickAddEdge };
 
 const ZOOM_DURATION = 320;
 const FIT_DURATION = 480;
@@ -110,7 +115,9 @@ function CanvasControls({
 }
 
 let nodeCounter = 0;
+let edgeCounter = 0;
 const freshNodeId = () => `n_${Date.now().toString(36)}_${++nodeCounter}`;
+const freshEdgeId = () => `e_${Date.now().toString(36)}_${++edgeCounter}`;
 
 /**
  * Branch label + color for an edge, derived from its source handle so
@@ -157,13 +164,10 @@ function decorateEdge(
 
     return {
         ...edge,
-        type: 'smoothstep',
+        type: 'quickAdd',
         animated: false,
         label,
-        labelStyle: { fontSize: 11, fontWeight: 700, fill: color },
-        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.95 },
-        labelBgPadding: [5, 3],
-        labelBgBorderRadius: 6,
+        data: { ...(edge.data ?? {}), edgeColor: color },
         style: { strokeWidth: 2, stroke: color },
         markerEnd: { type: MarkerType.ArrowClosed, color, width: 18, height: 18 },
     };
@@ -222,7 +226,7 @@ function BuilderInner() {
     const { automationId } = useParams();
     const id = Number(automationId);
     const workspaceId = useWorkspaceId();
-    const { t, statusLabel } = useI18n();
+    const { t, statusLabel, locale } = useI18n();
     const { screenToFlowPosition, setCenter, getNode, fitView } = useReactFlow();
     const branchLabels = useMemo<BranchLabels>(
         () => ({
@@ -240,11 +244,13 @@ function BuilderInner() {
     const [validState, setValidState] = useState<'unknown' | 'valid'>('unknown');
     const [validationErrors, setValidationErrors] = useState<{ node_id: string | null; message: string }[]>([]);
     const [noticeDismissed, setNoticeDismissed] = useState(false);
+    const [safetyDismissed, setSafetyDismissed] = useState(false);
     const [publishNotice, setPublishNotice] = useState<'success' | 'error' | null>(null);
     const [simulatorOpen, setSimulatorOpen] = useState(false);
     const [highlightedNode, setHighlightedNode] = useState<string | null>(null);
     const [libraryCollapsed, setLibraryCollapsed] = useState(false);
     const [canvasLocked, setCanvasLocked] = useState(false);
+    const [starterPickerDismissed, setStarterPickerDismissed] = useState(false);
     const didFitView = useRef(false); // reset when definition loads
 
     const focusNode = useCallback(
@@ -279,6 +285,7 @@ function BuilderInner() {
             const rf = toReactFlow(query.data.definition ?? { nodes: [], edges: [] }, null, branchLabels);
             setNodes(rf.nodes);
             setEdges(rf.edges);
+            setStarterPickerDismissed(rf.nodes.length > 0);
             didFitView.current = false;
         }
     }, [query.data, branchLabels]);
@@ -341,6 +348,7 @@ function BuilderInner() {
             const rf = toReactFlow(definition, highlightedNode, branchLabels);
             setNodes(rf.nodes);
             setEdges(rf.edges);
+            setStarterPickerDismissed(rf.nodes.length > 0);
             scheduleSave(rf.nodes, rf.edges);
         },
         [scheduleSave, highlightedNode, branchLabels],
@@ -411,13 +419,11 @@ function BuilderInner() {
         [nodes, pushHistory, scheduleSave, branchLabels],
     );
 
-    const addNode = useCallback(
-        (type: string, position?: { x: number; y: number }) => {
-            pushHistory();
+    const starterConfig = useCallback(
+        (type: string) => {
             const meta = NODE_META[type];
             const config = structuredClone(meta?.defaults ?? {});
 
-            // Locale-aware starter content for interactive message nodes.
             if (type === 'send_list') {
                 config.button = t('automations.list_button_placeholder');
                 config.sections = [
@@ -434,6 +440,15 @@ function BuilderInner() {
                 config.buttons = [{ id: 'btn_1', title: `${t('automations.option')} 1` }];
             }
 
+            return config;
+        },
+        [t],
+    );
+
+    const addNode = useCallback(
+        (type: string, position?: { x: number; y: number }) => {
+            pushHistory();
+            const config = starterConfig(type);
             const node: Node = {
                 id: freshNodeId(),
                 type: 'flowNode',
@@ -445,9 +460,68 @@ function BuilderInner() {
                 scheduleSave(next, edges);
                 return next;
             });
+            setStarterPickerDismissed(true);
             setSelectedNodeId(node.id);
         },
-        [edges, pushHistory, scheduleSave, t],
+        [edges, pushHistory, scheduleSave, starterConfig],
+    );
+
+    const insertNodeOnEdge = useCallback(
+        (edgeId: string, type: string) => {
+            const currentEdge = edges.find((edge) => edge.id === edgeId);
+            if (!currentEdge) return;
+
+            const sourceNode = nodes.find((node) => node.id === currentEdge.source);
+            const targetNode = nodes.find((node) => node.id === currentEdge.target);
+            if (!sourceNode || !targetNode) return;
+
+            const config = starterConfig(type);
+            const hasNext = nodeHandles(type, config).some((handle) => handle.id === 'next');
+            if (!hasNext) return;
+
+            pushHistory();
+            const inserted: Node = {
+                id: freshNodeId(),
+                type: 'flowNode',
+                position: {
+                    x: Math.round((sourceNode.position.x + targetNode.position.x) / 2),
+                    y: Math.round((sourceNode.position.y + targetNode.position.y) / 2),
+                },
+                data: { nodeType: type, config },
+            };
+
+            const first = decorateEdge(
+                {
+                    id: freshEdgeId(),
+                    source: currentEdge.source,
+                    sourceHandle: currentEdge.sourceHandle ?? undefined,
+                    target: inserted.id,
+                },
+                sourceNode.data.nodeType as string,
+                sourceNode.data.config as Record<string, any>,
+                branchLabels,
+            );
+            const second = decorateEdge(
+                {
+                    id: freshEdgeId(),
+                    source: inserted.id,
+                    sourceHandle: 'next',
+                    target: currentEdge.target,
+                },
+                type,
+                config,
+                branchLabels,
+            );
+
+            const nextNodes = [...nodes, inserted];
+            const nextEdges = [...edges.filter((edge) => edge.id !== edgeId), first, second];
+            setNodes(nextNodes);
+            setEdges(nextEdges);
+            setSelectedNodeId(inserted.id);
+            setStarterPickerDismissed(true);
+            scheduleSave(nextNodes, nextEdges);
+        },
+        [edges, nodes, starterConfig, pushHistory, branchLabels, scheduleSave],
     );
 
     const onDrop = useCallback(
@@ -514,6 +588,21 @@ function BuilderInner() {
         [nodes, edges, pushHistory, scheduleSave],
     );
 
+    const applyStarterRecipe = useCallback(
+        (key: StarterRecipeKey) => {
+            pushHistory();
+            const definition = createStarterRecipe(key, locale);
+            const rf = toReactFlow(definition, null, branchLabels);
+            setNodes(rf.nodes);
+            setEdges(rf.edges);
+            setStarterPickerDismissed(true);
+            setSelectedNodeId(rf.nodes[0]?.id ?? null);
+            didFitView.current = false;
+            scheduleSave(rf.nodes, rf.edges);
+        },
+        [pushHistory, locale, branchLabels, scheduleSave],
+    );
+
     const deleteSelected = useCallback(() => {
         if (!selectedNodeId) return;
         deleteNode(selectedNodeId);
@@ -552,6 +641,29 @@ function BuilderInner() {
             })),
         [nodes],
     );
+
+    const displayEdges = useMemo(
+        () =>
+            edges.map((edge) => ({
+                ...edge,
+                data: {
+                    ...(edge.data ?? {}),
+                    onQuickAdd: (type: string) => insertNodeOnEdge(edge.id, type),
+                },
+            })),
+        [edges, insertNodeOnEdge],
+    );
+
+    const whatsappRisks = useMemo(() => detectWhatsAppWindowRisks(nodes, edges), [nodes, edges]);
+    const riskSignature = whatsappRisks.map((risk) => `${risk.nodeId}:${risk.reason}`).join('|');
+    const lastRiskSignature = useRef('');
+
+    useEffect(() => {
+        if (riskSignature !== lastRiskSignature.current) {
+            lastRiskSignature.current = riskSignature;
+            setSafetyDismissed(false);
+        }
+    }, [riskSignature]);
 
     // Keyboard shortcuts: undo/redo/copy/paste/duplicate.
     useEffect(() => {
@@ -629,6 +741,13 @@ function BuilderInner() {
               ? { label: t('automations.unsaved'), className: 'bg-slate-100 text-slate-600 ring-slate-200' }
               : { label: t('automations.saved'), className: 'bg-brand-50 text-brand-700 ring-brand-200' };
 
+    const showSafetyNotice =
+        !publishNotice &&
+        validationErrors.length === 0 &&
+        validState !== 'valid' &&
+        whatsappRisks.length > 0 &&
+        !safetyDismissed;
+
     return (
         <div className="flex h-screen flex-col bg-slate-50">
             {/* Toolbar */}
@@ -679,9 +798,9 @@ function BuilderInner() {
                 />
 
                 <div className="relative min-w-0 flex-1" onDrop={onDrop} onDragOver={(e) => e.preventDefault()}>
-                    {!noticeDismissed && (
+                    {(!noticeDismissed || showSafetyNotice) && (
                         <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex justify-center px-3">
-                            {publishNotice === 'success' && (
+                            {publishNotice === 'success' && !noticeDismissed && (
                                 <BuilderNotice
                                     tone="success"
                                     title={t('automations.published_toast')}
@@ -693,7 +812,7 @@ function BuilderInner() {
                                 />
                             )}
 
-                            {!publishNotice && validationErrors.length > 0 && (
+                            {!publishNotice && validationErrors.length > 0 && !noticeDismissed && (
                                 <BuilderNotice
                                     tone="error"
                                     title={t('automations.cannot_publish')}
@@ -723,7 +842,8 @@ function BuilderInner() {
 
                             {!publishNotice &&
                                 validationErrors.length === 0 &&
-                                validState === 'valid' && (
+                                validState === 'valid' &&
+                                !noticeDismissed && (
                                     <BuilderNotice
                                         tone="success"
                                         title={t('automations.valid')}
@@ -731,10 +851,46 @@ function BuilderInner() {
                                         onClose={() => setNoticeDismissed(true)}
                                     />
                                 )}
+
+                            {showSafetyNotice && (
+                                <BuilderNotice
+                                    tone="warning"
+                                    title={
+                                        locale === 'ar'
+                                            ? 'مراجعة نافذة واتساب 24 ساعة'
+                                            : 'WhatsApp 24-hour window check'
+                                    }
+                                    onClose={() => setSafetyDismissed(true)}
+                                >
+                                    <div className="space-y-2">
+                                        <p>
+                                            {locale === 'ar'
+                                                ? `في ${whatsappRisks.length} رسالة عادية ممكن تتبعت بعد انتهاء نافذة خدمة العميل. استخدم WhatsApp Template معتمدة لو الإرسال ممكن يحصل بعد 24 ساعة.`
+                                                : `${whatsappRisks.length} free-form message(s) may run after the customer service window closes. Use an approved WhatsApp template when the send can happen after 24 hours.`}
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => focusNode(whatsappRisks[0]?.nodeId ?? null)}
+                                            className="rounded-lg bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 ring-1 ring-amber-200 hover:bg-amber-100"
+                                        >
+                                            {locale === 'ar' ? 'اعرض أول رسالة تحتاج مراجعة' : 'Show first message to review'}
+                                        </button>
+                                    </div>
+                                </BuilderNotice>
+                            )}
                         </div>
                     )}
 
-                    {nodes.length === 0 && (
+                    {nodes.length === 0 && !starterPickerDismissed && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-50/35 px-5 backdrop-blur-[1px]">
+                            <StarterRecipePicker
+                                onSelect={applyStarterRecipe}
+                                onBlank={() => addNode('trigger_incoming_message', { x: 220, y: 120 })}
+                            />
+                        </div>
+                    )}
+
+                    {nodes.length === 0 && starterPickerDismissed && (
                         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
                             <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-white/80 px-8 py-6 text-center">
                                 <p className="text-sm font-semibold text-slate-700">{t('automations.start_building')}</p>
@@ -744,8 +900,9 @@ function BuilderInner() {
                     )}
                     <ReactFlow
                         nodes={displayNodes}
-                        edges={edges}
+                        edges={displayEdges}
                         nodeTypes={nodeTypes}
+                        edgeTypes={edgeTypes}
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
