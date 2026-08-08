@@ -94,9 +94,15 @@ function paymobTestHmac(array $object): string
     ];
 
     $stringify = static function (mixed $value): string {
-        if (is_bool($value)) return $value ? 'true' : 'false';
-        if ($value === null) return '';
-        if (is_scalar($value)) return (string) $value;
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+        if ($value === null) {
+            return '';
+        }
+        if (is_scalar($value)) {
+            return (string) $value;
+        }
 
         return json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '';
     };
