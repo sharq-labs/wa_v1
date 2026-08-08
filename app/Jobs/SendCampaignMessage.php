@@ -9,6 +9,7 @@ use App\Enums\MessageSenderType;
 use App\Enums\MessageStatus;
 use App\Models\CampaignRecipient;
 use App\Models\Conversation;
+use App\Services\Campaigns\CampaignPolicyService;
 use App\Services\Campaigns\CampaignService;
 use App\Services\Messaging\MessageService;
 use App\Services\Templates\TemplateRenderer;
@@ -22,17 +23,47 @@ class SendCampaignMessage implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 1;
+    public int $tries = 3;
 
     public function __construct(public readonly int $recipientId)
     {
         $this->onQueue('campaigns');
     }
 
-    public function handle(MessageService $messages, TemplateRenderer $renderer, CampaignService $campaigns): void
-    {
-        // Pause/resume or duplicate fan-out jobs can target the same recipient.
-        // Claim the recipient once before creating an outbound message row.
+    public function handle(
+        MessageService $messages,
+        TemplateRenderer $renderer,
+        CampaignService $campaigns,
+        CampaignPolicyService $policy,
+    ): void {
+        // Read state before claiming so a quiet-hours delay leaves the recipient
+        // pending and another duplicate job can still safely race later.
+        $previewRecipient = CampaignRecipient::query()
+            ->with(['campaign.workspace', 'campaign.template'])
+            ->find($this->recipientId);
+
+        if (! $previewRecipient || $previewRecipient->status !== 'pending') {
+            return;
+        }
+
+        $previewCampaign = $previewRecipient->campaign;
+        if (! $previewCampaign || $previewCampaign->status === CampaignStatus::Cancelled) {
+            $previewRecipient->update(['status' => 'skipped']);
+
+            return;
+        }
+
+        if ($previewCampaign->status === CampaignStatus::Paused) {
+            return;
+        }
+
+        $quietDelay = $policy->quietHoursDelaySeconds($previewCampaign->workspace);
+        if ($quietDelay > 0) {
+            $this->release($quietDelay);
+
+            return;
+        }
+
         $claimed = CampaignRecipient::query()
             ->whereKey($this->recipientId)
             ->where('status', 'pending')
@@ -43,7 +74,7 @@ class SendCampaignMessage implements ShouldQueue
         }
 
         $recipient = CampaignRecipient::query()
-            ->with(['campaign.template', 'campaign.whatsappAccount', 'contact'])
+            ->with(['campaign.template', 'campaign.whatsappAccount', 'campaign.workspace', 'contact'])
             ->find($this->recipientId);
 
         if (! $recipient) {
@@ -75,15 +106,16 @@ class SendCampaignMessage implements ShouldQueue
             return;
         }
 
-        // Defence in depth: eligibility is checked while the audience is
-        // materialised and again immediately before the provider call. A user
-        // who opts out after scheduling must never receive the campaign.
         if (! $campaigns->isContactEligible($campaign, $contact)) {
+            $reason = $contact->opt_in_status === 'opted_out'
+                ? 'Contact opted out.'
+                : (! $policy->isFrequencyAllowed($campaign, $contact)
+                    ? 'Marketing frequency cap reached.'
+                    : 'No WhatsApp opt-in outside the 24-hour window.');
+
             $recipient->update([
                 'status' => 'skipped',
-                'error_message' => $contact->opt_in_status === 'opted_out'
-                    ? 'Contact opted out.'
-                    : 'No WhatsApp opt-in outside the 24-hour window.',
+                'error_message' => $reason,
             ]);
             $this->completeIfFinished($campaign);
 
