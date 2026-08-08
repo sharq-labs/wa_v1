@@ -155,6 +155,7 @@ class SpreadsheetContactReader
 
                 if ($headers === []) {
                     $headers = $this->uniqueHeaders($dense);
+
                     continue;
                 }
                 if ($this->rowIsEmpty($dense)) {
@@ -184,6 +185,7 @@ class SpreadsheetContactReader
         foreach ($xml->si as $item) {
             if (isset($item->t)) {
                 $strings[] = (string) $item->t;
+
                 continue;
             }
             $text = '';
