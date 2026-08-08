@@ -34,6 +34,20 @@ async function ensureCsrf(): Promise<void> {
     csrfReady = true;
 }
 
+function maybeStartHostedCheckout(url: string, data: unknown): void {
+    if (!url.endsWith('/billing/subscribe') || typeof window === 'undefined') return;
+
+    const checkoutUrl = (data as { checkout_url?: unknown } | null)?.checkout_url;
+    if (typeof checkoutUrl !== 'string' || checkoutUrl.trim() === '') return;
+
+    const checkout = new URL(checkoutUrl, window.location.origin);
+    if (checkout.protocol !== 'https:' && checkout.hostname !== 'localhost') {
+        throw new ApiError('The payment provider returned an unsafe checkout URL.', 502);
+    }
+
+    window.location.assign(checkout.toString());
+}
+
 export async function request<T = any>(
     method: string,
     url: string,
@@ -81,6 +95,8 @@ export async function request<T = any>(
     if (!response.ok || json.success === false) {
         throw new ApiError(json.message || 'Request failed.', response.status, json.errors ?? {});
     }
+
+    maybeStartHostedCheckout(url, json.data);
 
     return json;
 }
