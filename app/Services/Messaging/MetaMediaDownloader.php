@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
-use Throwable;
 
 class MetaMediaDownloader
 {
