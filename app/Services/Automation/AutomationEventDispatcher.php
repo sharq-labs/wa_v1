@@ -21,7 +21,9 @@ class AutomationEventDispatcher
         }
 
         $conversation = $contact ? $this->resolveConversation($workspace, $contact) : null;
-        $allowMultiple = (bool) $workspace->setting('automation.allow_multiple', false);
+        $allowMultiple = isset($payload['automation_id'])
+            ? false
+            : (bool) $workspace->setting('automation.allow_multiple', false);
         $started = 0;
 
         foreach ($allowMultiple ? $matches : $matches->take(1) as $automation) {
@@ -36,10 +38,13 @@ class AutomationEventDispatcher
     /** @return Collection<int, Automation> */
     public function matches(Workspace $workspace, string $eventType, array $payload = []): Collection
     {
+        $targetAutomationId = isset($payload['automation_id']) ? (int) $payload['automation_id'] : null;
+
         return Automation::query()
             ->forWorkspace($workspace)
             ->where('status', AutomationState::Published)
             ->whereNotNull('published_version_id')
+            ->when($targetAutomationId, fn ($query) => $query->whereKey($targetAutomationId))
             ->with('publishedVersion')
             ->orderByDesc('priority')
             ->orderBy('id')
@@ -70,8 +75,7 @@ class AutomationEventDispatcher
         return match ($eventType) {
             'trigger_tag_added', 'trigger_tag_removed' => $this->tagMatches($config, $payload),
             'trigger_field_changed' => $this->fieldMatches($config, $payload),
-            'trigger_webhook' => $this->webhookMatches($config, $payload),
-            'trigger_scheduled' => $this->scheduleMatches($config, $payload),
+            'trigger_webhook', 'trigger_scheduled' => true,
             default => true,
         };
     }
@@ -106,21 +110,6 @@ class AutomationEventDispatcher
             'became_non_empty' => ! ($new === null || $new === '') && ($old === null || $old === ''),
             default => $old !== $new,
         };
-    }
-
-    protected function webhookMatches(array $config, array $payload): bool
-    {
-        $configured = trim((string) ($config['webhook_key'] ?? ''));
-
-        return $configured === '' || hash_equals($configured, (string) ($payload['webhook_key'] ?? ''));
-    }
-
-    protected function scheduleMatches(array $config, array $payload): bool
-    {
-        $expectedAutomationId = isset($payload['automation_id']) ? (int) $payload['automation_id'] : null;
-        $configuredAutomationId = isset($config['automation_id']) ? (int) $config['automation_id'] : null;
-
-        return $expectedAutomationId === null || $configuredAutomationId === null || $expectedAutomationId === $configuredAutomationId;
     }
 
     protected function resolveConversation(Workspace $workspace, Contact $contact): ?Conversation
