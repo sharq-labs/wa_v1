@@ -13,6 +13,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Throwable;
 
 class ProcessContactImport implements ShouldQueue
@@ -73,7 +74,7 @@ class ProcessContactImport implements ShouldQueue
                 try {
                     $phone = $this->normalisePhone($this->mapped($row, $mapping, 'phone_number'));
                     if ($phone === null) {
-                        throw new \RuntimeException('A valid phone number is required.');
+                        throw new RuntimeException('A valid phone number is required.');
                     }
 
                     $contact = Contact::query()
