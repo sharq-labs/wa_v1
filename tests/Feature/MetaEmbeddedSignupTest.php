@@ -39,7 +39,7 @@ it('registers the phone and subscribes the WABA before saving the Meta account',
     Http::fake(function (Request $request) {
         $url = $request->url();
 
-        if (str_ends_with($url, '/oauth/access_token')) {
+        if (str_contains($url, '/oauth/access_token')) {
             return Http::response(['access_token' => 'business-token', 'expires_in' => 3600]);
         }
 
@@ -51,7 +51,7 @@ it('registers the phone and subscribes the WABA before saving the Meta account',
             ]);
         }
 
-        if (str_ends_with($url, '/waba-123/phone_numbers')) {
+        if (str_contains($url, '/waba-123/phone_numbers')) {
             return Http::response([
                 'data' => [[
                     'id' => 'phone-123',
@@ -112,7 +112,7 @@ it('does not save the account when Meta phone registration fails', function () {
     Http::fake(function (Request $request) {
         $url = $request->url();
 
-        if (str_ends_with($url, '/oauth/access_token')) {
+        if (str_contains($url, '/oauth/access_token')) {
             return Http::response(['access_token' => 'business-token']);
         }
 
@@ -120,7 +120,7 @@ it('does not save the account when Meta phone registration fails', function () {
             return Http::response(['id' => 'waba-123', 'owner_business_info' => ['id' => 'business-123']]);
         }
 
-        if (str_ends_with($url, '/waba-123/phone_numbers')) {
+        if (str_contains($url, '/waba-123/phone_numbers')) {
             return Http::response(['data' => [[
                 'id' => 'phone-123',
                 'display_phone_number' => '+201000000000',
