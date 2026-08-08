@@ -68,7 +68,7 @@ export default function CampaignsPage() {
         onSuccess: invalidate,
     });
 
-    const items = campaigns.data?.items ?? [];
+    const items = useMemo(() => campaigns.data?.items ?? [], [campaigns.data?.items]);
     const totals = useMemo(() => {
         const sent = items.reduce((sum, item) => sum + item.sent_count, 0);
         const delivered = items.reduce((sum, item) => sum + item.delivered_count, 0);
@@ -418,7 +418,11 @@ function CampaignDetailModal({ campaignId, onClose }: { campaignId: number | nul
                 <div className="grid gap-3 md:grid-cols-2"><RateBar label={tr('Delivery rate', 'معدل التسليم')} value={analytics.delivery_rate} /><RateBar label={tr('Read rate', 'معدل القراءة')} value={analytics.read_rate} /></div>
                 <div>
                     <div className="mb-2 flex items-center gap-2"><BarChart3 size={16} className="text-slate-500"/><h3 className="text-sm font-bold text-slate-700">{tr('Recipients & delivery status', 'المستلمون وحالة التسليم')}</h3></div>
-                    {recipients.isLoading ? <Spinner /> : <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-200">{(recipients.data?.items as CampaignRecipient[] | undefined)?.slice(0, 50).map((recipient) => { const name = recipient.contact?.full_name ?? recipient.contact?.display_name ?? [recipient.contact?.first_name, recipient.contact?.last_name].filter(Boolean).join(' ') || recipient.contact?.phone_number; return <div key={recipient.id} className="flex items-start justify-between gap-3 border-b border-slate-100 px-3 py-2.5 text-xs last:border-0"><div><p className="font-semibold text-slate-700">{name}</p><p className="text-slate-400">{recipient.contact?.phone_number}</p>{recipient.error_message && <p className="mt-1 text-amber-700">{recipient.error_message}</p>}</div><Badge color={statusColor(recipient.message?.status ?? recipient.status)}>{statusLabel(recipient.message?.status ?? recipient.status)}</Badge></div>; })}</div>}
+                    {recipients.isLoading ? <Spinner /> : <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-200">{(recipients.data?.items as CampaignRecipient[] | undefined)?.slice(0, 50).map((recipient) => {
+                        const fallbackName = [recipient.contact?.first_name, recipient.contact?.last_name].filter(Boolean).join(' ');
+                        const name = recipient.contact?.full_name || recipient.contact?.display_name || fallbackName || recipient.contact?.phone_number || '—';
+                        return <div key={recipient.id} className="flex items-start justify-between gap-3 border-b border-slate-100 px-3 py-2.5 text-xs last:border-0"><div><p className="font-semibold text-slate-700">{name}</p><p className="text-slate-400">{recipient.contact?.phone_number}</p>{recipient.error_message && <p className="mt-1 text-amber-700">{recipient.error_message}</p>}</div><Badge color={statusColor(recipient.message?.status ?? recipient.status)}>{statusLabel(recipient.message?.status ?? recipient.status)}</Badge></div>;
+                    })}</div>}
                 </div>
             </div> : detail.isError ? <QueryError onRetry={() => detail.refetch()} /> : null}
         </Modal>
