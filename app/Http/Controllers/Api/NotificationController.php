@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Models\Workspace;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Gate;
 
 class NotificationController extends ApiController
