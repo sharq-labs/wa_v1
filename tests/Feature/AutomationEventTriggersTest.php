@@ -10,7 +10,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 
-it('emits tag added and removed automation events from contact mutations', function () {
+it('emits tag events only when published automations listen for the mutation', function () {
     Queue::fake([ProcessAutomationEvent::class]);
     $ctx = createWorkspaceContext();
     $contact = Contact::factory()->create(['workspace_id' => $ctx['workspace']->id]);
@@ -20,22 +20,32 @@ it('emits tag added and removed automation events from contact mutations', funct
         'color' => '#22c55e',
     ]);
 
+    // With no listener, contact mutations do not create useless queue traffic.
     $contact->tags()->attach($tag->id);
+    Queue::assertNotPushed(ProcessAutomationEvent::class);
     $contact->tags()->detach($tag->id);
 
+    publishAutomation($ctx['workspace'], [
+        'nodes' => [
+            ['id' => 'trigger', 'type' => NodeType::TriggerTagAdded->value, 'config' => ['tag_id' => $tag->id]],
+            ['id' => 'stop', 'type' => NodeType::Stop->value, 'config' => []],
+        ],
+        'edges' => [
+            ['id' => 'e1', 'source' => 'trigger', 'sourceHandle' => 'next', 'target' => 'stop'],
+        ],
+    ], 'Tag Listener');
+
+    $contact->tags()->attach($tag->id);
+
+    Queue::assertPushed(ProcessAutomationEvent::class, 1);
     Queue::assertPushed(ProcessAutomationEvent::class, fn ($job) =>
         $job->eventType === NodeType::TriggerTagAdded->value
         && $job->contactId === $contact->id
         && ($job->payload['tag_id'] ?? null) === $tag->id
     );
-    Queue::assertPushed(ProcessAutomationEvent::class, fn ($job) =>
-        $job->eventType === NodeType::TriggerTagRemoved->value
-        && $job->contactId === $contact->id
-        && ($job->payload['tag_id'] ?? null) === $tag->id
-    );
 });
 
-it('emits a field changed event only when the value really changes', function () {
+it('emits a field changed event only for real changes with a published listener', function () {
     Queue::fake([ProcessAutomationEvent::class]);
     $ctx = createWorkspaceContext();
     $contact = Contact::factory()->create(['workspace_id' => $ctx['workspace']->id]);
@@ -45,6 +55,16 @@ it('emits a field changed event only when the value really changes', function ()
         'key' => 'lead_status',
         'type' => 'text',
     ]);
+
+    publishAutomation($ctx['workspace'], [
+        'nodes' => [
+            ['id' => 'trigger', 'type' => NodeType::TriggerFieldChanged->value, 'config' => ['field_key' => 'lead_status']],
+            ['id' => 'stop', 'type' => NodeType::Stop->value, 'config' => []],
+        ],
+        'edges' => [
+            ['id' => 'e1', 'source' => 'trigger', 'sourceHandle' => 'next', 'target' => 'stop'],
+        ],
+    ], 'Field Listener');
 
     $contact->setCustomFieldValue($field, 'new');
     $contact->setCustomFieldValue($field, 'new');
