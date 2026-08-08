@@ -43,10 +43,10 @@ class AutomationAnalyticsController extends ApiController
             ->where('runs.automation_id', $automation->id)
             ->where('steps.created_at', '>=', $since)
             ->selectRaw(
-                "steps.node_id, steps.node_type, COUNT(DISTINCT steps.automation_run_id) AS entered, "
-                ."SUM(CASE WHEN steps.status = 'failed' THEN 1 ELSE 0 END) AS failed, "
-                ."SUM(CASE WHEN steps.status = 'waiting' THEN 1 ELSE 0 END) AS waiting, "
-                ."COUNT(*) AS executions"
+                'steps.node_id, steps.node_type, COUNT(DISTINCT steps.automation_run_id) AS entered, '
+                .'SUM(CASE WHEN steps.status = \'failed\' THEN 1 ELSE 0 END) AS failed, '
+                .'SUM(CASE WHEN steps.status = \'waiting\' THEN 1 ELSE 0 END) AS waiting, '
+                .'COUNT(*) AS executions'
             )
             ->groupBy('steps.node_id', 'steps.node_type')
             ->get();
