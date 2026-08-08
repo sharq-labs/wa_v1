@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api;
 use App\Http\Controllers\Api\Webhooks\MetaWebhookController;
+use App\Http\Controllers\Api\Webhooks\PaymobWebhookController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\Route;
 Route::get('/webhooks/meta/whatsapp', [MetaWebhookController::class, 'verify']);
 Route::post('/webhooks/meta/whatsapp', [MetaWebhookController::class, 'receive'])
     ->middleware('throttle:240,1');
+Route::post('/webhooks/paymob/transaction', [PaymobWebhookController::class, 'receive'])
+    ->middleware('throttle:120,1');
 
 /*
 |--------------------------------------------------------------------------
@@ -44,14 +47,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/invitations/accept', [Api\WorkspaceMemberController::class, 'acceptInvitation']);
 
-    // Workspace collection
     Route::get('/workspaces', [Api\WorkspaceController::class, 'index']);
     Route::post('/workspaces', [Api\WorkspaceController::class, 'store']);
 
-    // Billing plan catalogue (public to logged-in users)
     Route::get('/plans', [Api\BillingController::class, 'plans']);
 
-    // Workspace-scoped routes: membership enforced by the workspace middleware.
     Route::prefix('/workspaces/{workspace}')->middleware('workspace')->group(function () {
         Route::get('/', [Api\WorkspaceController::class, 'show']);
         Route::put('/', [Api\WorkspaceController::class, 'update']);
@@ -60,7 +60,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logo', [Api\WorkspaceController::class, 'uploadLogo']);
         Route::post('/complete-onboarding', [Api\WorkspaceController::class, 'completeOnboarding']);
 
-        // Members & invitations
         Route::get('/members', [Api\WorkspaceMemberController::class, 'index']);
         Route::put('/members/{user}/role', [Api\WorkspaceMemberController::class, 'updateRole']);
         Route::delete('/members/{user}', [Api\WorkspaceMemberController::class, 'destroy']);
@@ -68,7 +67,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/invitations', [Api\WorkspaceMemberController::class, 'invite']);
         Route::delete('/invitations/{invitation}', [Api\WorkspaceMemberController::class, 'revokeInvitation']);
 
-        // Agents & teams
         Route::get('/agents', [Api\AgentController::class, 'index']);
         Route::put('/agents/self', [Api\AgentController::class, 'updateSelf']);
         Route::put('/agents/{agentProfile}', [Api\AgentController::class, 'update']);
@@ -77,7 +75,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/teams/{team}', [Api\AgentTeamController::class, 'update']);
         Route::delete('/teams/{team}', [Api\AgentTeamController::class, 'destroy']);
 
-        // WhatsApp accounts
         Route::get('/whatsapp-accounts', [Api\WhatsAppAccountController::class, 'index']);
         Route::post('/whatsapp-accounts/connect-fake', [Api\WhatsAppAccountController::class, 'connectFake']);
         Route::get('/whatsapp-accounts/{account}', [Api\WhatsAppAccountController::class, 'show']);
@@ -86,7 +83,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/meta/embedded-signup/config', [Api\MetaEmbeddedSignupController::class, 'config']);
         Route::post('/meta/embedded-signup/complete', [Api\MetaEmbeddedSignupController::class, 'complete']);
 
-        // Contacts CRM
         Route::get('/contacts', [Api\ContactController::class, 'index']);
         Route::post('/contacts', [Api\ContactController::class, 'store']);
         Route::get('/contacts/export', [Api\ContactController::class, 'export']);
@@ -96,7 +92,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/contacts/{contact}/status', [Api\ContactController::class, 'setStatus']);
         Route::put('/contacts/{contact}/tags', [Api\ContactController::class, 'syncTags']);
 
-        // Tags & custom fields
         Route::get('/tags', [Api\TagController::class, 'index']);
         Route::post('/tags', [Api\TagController::class, 'store']);
         Route::put('/tags/{tag}', [Api\TagController::class, 'update']);
@@ -106,7 +101,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/custom-fields/{customField}', [Api\CustomFieldController::class, 'update']);
         Route::delete('/custom-fields/{customField}', [Api\CustomFieldController::class, 'destroy']);
 
-        // Inbox
         Route::get('/conversations', [Api\ConversationController::class, 'index']);
         Route::get('/conversations/{conversation}', [Api\ConversationController::class, 'show']);
         Route::post('/conversations/{conversation}/assign', [Api\ConversationController::class, 'assign']);
@@ -123,7 +117,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/conversations/{conversation}/notes', [Api\ConversationNoteController::class, 'index']);
         Route::post('/conversations/{conversation}/notes', [Api\ConversationNoteController::class, 'store']);
 
-        // Automations
         Route::get('/automations', [Api\AutomationController::class, 'index']);
         Route::post('/automations', [Api\AutomationController::class, 'store']);
         Route::get('/automations/{automation}', [Api\AutomationController::class, 'show']);
@@ -138,14 +131,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/automations/{automation}/simulate/start', [Api\SimulationController::class, 'start']);
         Route::post('/automations/{automation}/simulate/message', [Api\SimulationController::class, 'message']);
 
-        // Templates
         Route::get('/templates', [Api\TemplateController::class, 'index']);
         Route::post('/templates', [Api\TemplateController::class, 'store']);
         Route::get('/templates/{template}', [Api\TemplateController::class, 'show']);
         Route::delete('/templates/{template}', [Api\TemplateController::class, 'destroy']);
         Route::post('/templates/sync', [Api\TemplateController::class, 'sync']);
 
-        // Campaigns & segments
         Route::get('/campaigns', [Api\CampaignController::class, 'index']);
         Route::post('/campaigns', [Api\CampaignController::class, 'store']);
         Route::post('/campaigns/preview', [Api\CampaignController::class, 'preview']);
@@ -162,22 +153,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/segments/{segment}', [Api\SegmentController::class, 'destroy']);
         Route::post('/segments/preview', [Api\SegmentController::class, 'preview']);
 
-        // Billing
         Route::get('/billing/summary', [Api\BillingController::class, 'summary']);
         Route::post('/billing/subscribe', [Api\BillingController::class, 'subscribe']);
         Route::post('/billing/cancel', [Api\BillingController::class, 'cancel']);
 
-        // Dashboard, analytics, audit
         Route::get('/dashboard', [Api\DashboardController::class, 'index']);
         Route::get('/analytics', [Api\AnalyticsController::class, 'index']);
         Route::get('/audit-logs', [Api\AuditLogController::class, 'index']);
     });
 
-    /*
-    |----------------------------------------------------------------------
-    | Platform admin (super admin only)
-    |----------------------------------------------------------------------
-    */
     Route::prefix('/admin')->middleware('super-admin')->group(function () {
         Route::get('/overview', [Api\Admin\AdminController::class, 'overview']);
         Route::get('/users', [Api\Admin\AdminController::class, 'users']);
