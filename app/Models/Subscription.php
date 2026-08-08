@@ -41,6 +41,18 @@ class Subscription extends Model
 
     public function isActive(): bool
     {
-        return in_array($this->status, ['active', 'trialing'], true);
+        if (! in_array($this->status, ['active', 'trialing'], true)) {
+            return false;
+        }
+
+        if ($this->current_period_end?->isPast()) {
+            return false;
+        }
+
+        if ($this->status === 'trialing' && $this->trial_ends_at?->isPast()) {
+            return false;
+        }
+
+        return true;
     }
 }
