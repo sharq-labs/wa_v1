@@ -37,21 +37,13 @@ it('registers the phone and subscribes the WABA before saving the Meta account',
     $ctx['account']->delete();
 
     Http::fake(function (Request $request) {
-        $url = $request->url();
+        $path = (string) parse_url($request->url(), PHP_URL_PATH);
 
-        if (str_contains($url, '/oauth/access_token')) {
+        if (str_ends_with($path, '/oauth/access_token')) {
             return Http::response(['access_token' => 'business-token', 'expires_in' => 3600]);
         }
 
-        if (str_ends_with($url, '/waba-123')) {
-            return Http::response([
-                'id' => 'waba-123',
-                'name' => 'Customer WABA',
-                'owner_business_info' => ['id' => 'business-123'],
-            ]);
-        }
-
-        if (str_contains($url, '/waba-123/phone_numbers')) {
+        if (str_ends_with($path, '/waba-123/phone_numbers')) {
             return Http::response([
                 'data' => [[
                     'id' => 'phone-123',
@@ -63,7 +55,15 @@ it('registers the phone and subscribes the WABA before saving the Meta account',
             ]);
         }
 
-        if (str_ends_with($url, '/phone-123/register')) {
+        if (str_ends_with($path, '/waba-123')) {
+            return Http::response([
+                'id' => 'waba-123',
+                'name' => 'Customer WABA',
+                'owner_business_info' => ['id' => 'business-123'],
+            ]);
+        }
+
+        if (str_ends_with($path, '/phone-123/register')) {
             expect($request->method())->toBe('POST')
                 ->and($request['messaging_product'])->toBe('whatsapp')
                 ->and($request['pin'])->toBe('482615');
@@ -71,7 +71,7 @@ it('registers the phone and subscribes the WABA before saving the Meta account',
             return Http::response(['success' => true]);
         }
 
-        if (str_ends_with($url, '/waba-123/subscribed_apps')) {
+        if (str_ends_with($path, '/waba-123/subscribed_apps')) {
             return Http::response(['success' => true]);
         }
 
@@ -101,8 +101,8 @@ it('registers the phone and subscribes the WABA before saving the Meta account',
         'status' => 'connected',
     ]);
 
-    Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/phone-123/register'));
-    Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/waba-123/subscribed_apps'));
+    Http::assertSent(fn (Request $request) => str_ends_with((string) parse_url($request->url(), PHP_URL_PATH), '/phone-123/register'));
+    Http::assertSent(fn (Request $request) => str_ends_with((string) parse_url($request->url(), PHP_URL_PATH), '/waba-123/subscribed_apps'));
 });
 
 it('does not save the account when Meta phone registration fails', function () {
@@ -110,17 +110,13 @@ it('does not save the account when Meta phone registration fails', function () {
     $ctx['account']->delete();
 
     Http::fake(function (Request $request) {
-        $url = $request->url();
+        $path = (string) parse_url($request->url(), PHP_URL_PATH);
 
-        if (str_contains($url, '/oauth/access_token')) {
+        if (str_ends_with($path, '/oauth/access_token')) {
             return Http::response(['access_token' => 'business-token']);
         }
 
-        if (str_ends_with($url, '/waba-123')) {
-            return Http::response(['id' => 'waba-123', 'owner_business_info' => ['id' => 'business-123']]);
-        }
-
-        if (str_contains($url, '/waba-123/phone_numbers')) {
+        if (str_ends_with($path, '/waba-123/phone_numbers')) {
             return Http::response(['data' => [[
                 'id' => 'phone-123',
                 'display_phone_number' => '+201000000000',
@@ -128,7 +124,11 @@ it('does not save the account when Meta phone registration fails', function () {
             ]]]);
         }
 
-        if (str_ends_with($url, '/phone-123/register')) {
+        if (str_ends_with($path, '/waba-123')) {
+            return Http::response(['id' => 'waba-123', 'owner_business_info' => ['id' => 'business-123']]);
+        }
+
+        if (str_ends_with($path, '/phone-123/register')) {
             return Http::response(['error' => ['message' => 'Invalid PIN']], 400);
         }
 
@@ -150,5 +150,5 @@ it('does not save the account when Meta phone registration fails', function () {
         'phone_number_id' => 'phone-123',
     ]);
 
-    Http::assertNotSent(fn (Request $request) => str_ends_with($request->url(), '/waba-123/subscribed_apps'));
+    Http::assertNotSent(fn (Request $request) => str_ends_with((string) parse_url($request->url(), PHP_URL_PATH), '/waba-123/subscribed_apps'));
 });
