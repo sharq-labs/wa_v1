@@ -37,13 +37,25 @@ class DispatchScheduledAutomations extends Command
 
                     $lockKey = 'scheduled-automation:'.$automation->id.':'.$utcMinute->format('YmdHi');
                     Cache::lock($lockKey, 90)->get(function () use ($automation, $trigger, $utcMinute, &$dispatched): void {
-                        $tickId = DB::table('automation_schedule_ticks')->insertGetId([
-                            'workspace_id' => $automation->workspace_id,
-                            'automation_id' => $automation->id,
-                            'scheduled_for' => $utcMinute,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ]);
+                        $existing = DB::table('automation_schedule_ticks')
+                            ->where('automation_id', $automation->id)
+                            ->where('scheduled_for', $utcMinute)
+                            ->first();
+
+                        if ($existing?->dispatched_at) {
+                            return;
+                        }
+
+                        $tickId = $existing?->id;
+                        if (! $tickId) {
+                            $tickId = DB::table('automation_schedule_ticks')->insertGetId([
+                                'workspace_id' => $automation->workspace_id,
+                                'automation_id' => $automation->id,
+                                'scheduled_for' => $utcMinute,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ]);
+                        }
 
                         $count = $this->dispatchAudience($automation, $trigger['config'] ?? []);
 
