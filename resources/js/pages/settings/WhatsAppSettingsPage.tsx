@@ -146,7 +146,7 @@ export default function WhatsAppSettingsPage() {
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
                                         <p className="truncate text-lg font-semibold text-slate-900">
-                                            {account.display_phone_number || account.phone_number_id}
+                                            {account.display_phone_number || `WhatsApp #${account.id}`}
                                         </p>
                                         <p className="mt-1 truncate text-sm text-slate-500">
                                             {account.verified_name || 'WhatsApp Business'}
