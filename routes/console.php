@@ -11,5 +11,8 @@ Schedule::command('templates:sync-all')->hourly();
 // Launch scheduled campaigns whose time has come (redundant with delayed jobs).
 Schedule::command('campaigns:dispatch-due')->everyMinute();
 
+// Expire platform subscriptions after their paid period ends.
+Schedule::command('billing:expire-subscriptions')->hourly();
+
 // Clean processed webhook events after the retention window.
 Schedule::command('webhooks:prune')->daily();
