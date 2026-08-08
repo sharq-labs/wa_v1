@@ -15,6 +15,8 @@ Route::post('/webhooks/meta/whatsapp', [MetaWebhookController::class, 'receive']
     ->middleware('throttle:240,1');
 Route::post('/webhooks/paymob/transaction', [PaymobWebhookController::class, 'receive'])
     ->middleware('throttle:120,1');
+Route::post('/automation-hooks/{publicKey}', [Api\AutomationWebhookController::class, 'receive'])
+    ->middleware('throttle:120,1');
 
 /*
 |--------------------------------------------------------------------------
@@ -49,7 +51,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/workspaces', [Api\WorkspaceController::class, 'index']);
     Route::post('/workspaces', [Api\WorkspaceController::class, 'store']);
-
     Route::get('/plans', [Api\BillingController::class, 'plans']);
 
     Route::prefix('/workspaces/{workspace}')->middleware('workspace')->group(function () {
@@ -130,6 +131,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/automations/{automation}/runs/{runUuid}', [Api\AutomationController::class, 'runDetail']);
         Route::post('/automations/{automation}/simulate/start', [Api\SimulationController::class, 'start']);
         Route::post('/automations/{automation}/simulate/message', [Api\SimulationController::class, 'message']);
+        Route::get('/automations/{automation}/webhook-endpoint', [Api\AutomationWebhookController::class, 'show']);
+        Route::post('/automations/{automation}/webhook-endpoint/rotate', [Api\AutomationWebhookController::class, 'rotate']);
 
         Route::get('/templates', [Api\TemplateController::class, 'index']);
         Route::post('/templates', [Api\TemplateController::class, 'store']);
