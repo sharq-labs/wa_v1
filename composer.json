@@ -48,7 +48,7 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74,#6ee7b7,#67e8f9\" \"php artisan serve\" \"php artisan horizon\" \"php artisan schedule:work\" \"php artisan pail --timeout=0\" \"npm run dev\" \"php artisan reverb:start\" --names=server,horizon,scheduler,logs,vite,reverb --kill-others"
+            "@php scripts/dev.php"
         ],
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
