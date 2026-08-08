@@ -17,20 +17,28 @@ class ManualBillingProvider implements BillingProviderInterface
         return 'manual';
     }
 
-    public function subscribe(Workspace $workspace, Plan $plan, string $billingCycle = 'monthly'): Subscription
-    {
+    public function subscribe(
+        Workspace $workspace,
+        Plan $plan,
+        string $billingCycle = 'monthly',
+        array $customer = [],
+    ): BillingCheckoutResult {
         $current = $workspace->subscription;
 
         if ($current && $current->isActive()) {
             $current->update([
                 'plan_id' => $plan->id,
+                'provider' => $this->name(),
                 'billing_cycle' => $billingCycle,
+                'current_period_start' => now(),
+                'current_period_end' => $billingCycle === 'yearly' ? now()->addYear() : now()->addMonth(),
+                'cancelled_at' => null,
             ]);
 
-            return $current->fresh();
+            return new BillingCheckoutResult($current->fresh(), null, null, false);
         }
 
-        return Subscription::query()->create([
+        $subscription = Subscription::query()->create([
             'workspace_id' => $workspace->id,
             'plan_id' => $plan->id,
             'provider' => $this->name(),
@@ -39,6 +47,8 @@ class ManualBillingProvider implements BillingProviderInterface
             'current_period_start' => now(),
             'current_period_end' => $billingCycle === 'yearly' ? now()->addYear() : now()->addMonth(),
         ]);
+
+        return new BillingCheckoutResult($subscription, null, null, false);
     }
 
     public function cancel(Subscription $subscription): Subscription
@@ -48,7 +58,7 @@ class ManualBillingProvider implements BillingProviderInterface
             'cancelled_at' => now(),
         ]);
 
-        return $subscription;
+        return $subscription->fresh();
     }
 
     public function portalUrl(Workspace $workspace): ?string
