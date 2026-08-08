@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Enums\NodeType;
-use App\Jobs\ProcessAutomationEvent;
+use App\Services\Automation\AutomationEventPublisher;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
@@ -43,7 +43,7 @@ class ContactTag extends Pivot
             return;
         }
 
-        ProcessAutomationEvent::dispatch(
+        app(AutomationEventPublisher::class)->publish(
             $contact->workspace_id,
             $eventType,
             $contact->id,
@@ -52,6 +52,6 @@ class ContactTag extends Pivot
                 'tag_name' => $tag->name,
                 'source' => 'contact_tag_pivot',
             ],
-        )->afterCommit();
+        );
     }
 }
