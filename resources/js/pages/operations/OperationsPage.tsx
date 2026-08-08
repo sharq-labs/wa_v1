@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Bell, CheckCircle2, FileUp, HeartPulse, RefreshCw } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { productionApi, type ContactImportUploadResult } from '@/api/production';
-import { Button, Input, Select, Spinner } from '@/components/ui';
+import { Button, Select, Spinner } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
 import { useWorkspaceId } from '@/stores/authStore';
 
