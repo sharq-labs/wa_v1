@@ -17,11 +17,24 @@ class MetaEmbeddedSignupController extends ApiController
     {
         Gate::authorize('manageWhatsAppAccounts', $workspace);
 
+        $configId = config('meta.embedded_signup_config_id') ?: config('meta.config_id');
+        $required = [
+            'META_APP_ID' => config('meta.app_id'),
+            'META_APP_SECRET' => config('meta.app_secret'),
+            'META_EMBEDDED_SIGNUP_CONFIG_ID' => $configId,
+        ];
+        $missing = collect($required)
+            ->filter(fn ($value) => blank($value))
+            ->keys()
+            ->values()
+            ->all();
+
         return $this->success([
             'app_id' => config('meta.app_id'),
-            'config_id' => config('meta.embedded_signup_config_id') ?: config('meta.config_id'),
+            'config_id' => $configId,
             'graph_api_version' => config('meta.graph_api_version'),
-            'enabled' => (bool) (config('meta.app_id') && config('meta.app_secret')),
+            'enabled' => $missing === [],
+            'missing' => $missing,
         ]);
     }
 
@@ -36,7 +49,9 @@ class MetaEmbeddedSignupController extends ApiController
         $data = $request->validate([
             'code' => ['required', 'string'],
             'waba_id' => ['required', 'string'],
-            'phone_number_id' => ['nullable', 'string'],
+            'phone_number_id' => ['required', 'string'],
+            'business_id' => ['nullable', 'string'],
+            'pin' => ['required', 'digits:6'],
         ]);
 
         if (! config('meta.app_id') || ! config('meta.app_secret')) {
@@ -79,9 +94,23 @@ class MetaEmbeddedSignupController extends ApiController
         }
 
         $phones = $phonesResponse->json('data', []);
-        $phone = collect($phones)->firstWhere('id', $phoneNumberId) ?? ($phones[0] ?? null);
+        $phone = collect($phones)->firstWhere('id', $phoneNumberId);
         if (! $phone) {
-            return $this->error(__('No phone number found on the WhatsApp Business Account.'), [], 422);
+            return $this->error(__('The phone number returned by Meta does not belong to the selected WhatsApp Business Account.'), [], 422);
+        }
+
+        $registerResponse = $authorized->post("{$base}/{$phoneNumberId}/register", [
+            'messaging_product' => 'whatsapp',
+            'pin' => $data['pin'],
+        ]);
+        if (! $registerResponse->successful() || $registerResponse->json('success') === false) {
+            Log::warning('Embedded signup phone registration failed', [
+                'waba_id' => $wabaId,
+                'phone_number_id' => $phoneNumberId,
+                'status' => $registerResponse->status(),
+            ]);
+
+            return $this->error(__('WhatsApp was authorized, but the phone number could not be registered. Verify the six-digit PIN and try again.'), [], 502);
         }
 
         $subscribeResponse = $authorized->post("{$base}/{$wabaId}/subscribed_apps");
@@ -91,14 +120,14 @@ class MetaEmbeddedSignupController extends ApiController
                 'status' => $subscribeResponse->status(),
             ]);
 
-            return $this->error(__('WhatsApp was authorized but webhook subscription failed. The account was not connected.'), [], 502);
+            return $this->error(__('WhatsApp was registered, but webhook subscription failed. The account was not connected.'), [], 502);
         }
 
         $account = $workspace->whatsappAccounts()->updateOrCreate(
             ['phone_number_id' => $phone['id']],
             [
                 'provider' => 'meta',
-                'meta_business_id' => $waba['owner_business_info']['id'] ?? null,
+                'meta_business_id' => $data['business_id'] ?? ($waba['owner_business_info']['id'] ?? null),
                 'waba_id' => $wabaId,
                 'display_phone_number' => $phone['display_phone_number'] ?? null,
                 'verified_name' => $phone['verified_name'] ?? null,

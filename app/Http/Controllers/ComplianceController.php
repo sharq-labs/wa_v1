@@ -46,26 +46,58 @@ class ComplianceController extends Controller
 
     protected function defaultPrivacy(): string
     {
-        return "We collect and process contact information and message content solely to provide WhatsApp business messaging services on behalf of our customers. Data is stored securely, encrypted at rest where appropriate, and never sold to third parties. Message content is processed through the Meta WhatsApp Business Platform subject to Meta's terms. You may request deletion of your data at any time — see our Data Deletion page.";
+        $company = $this->companyName();
+        $privacyEmail = $this->privacyEmail();
+
+        return "{$company} processes contact information, message content, account identifiers, and operational metadata only to provide WhatsApp business messaging, automation, inbox, analytics, and customer-support services for its customers. Data is protected using access controls and encryption where appropriate and is not sold to advertisers or data brokers. WhatsApp message delivery is processed through the official Meta WhatsApp Business Platform and is also subject to Meta's applicable terms. Data is retained only for as long as needed to provide the service, meet legal obligations, resolve disputes, and maintain security records. Data subjects or workspace owners may request access, correction, export, or deletion by contacting {$privacyEmail}. See the Data Deletion page for the deletion procedure.";
     }
 
     protected function defaultTerms(): string
     {
-        return 'By using this platform you agree to use WhatsApp messaging in compliance with the WhatsApp Business Messaging Policy, to obtain proper opt-in from your contacts, and not to send spam or prohibited content. Subscriptions are billed by the platform; WhatsApp conversation charges are billed separately by Meta.';
+        $company = $this->companyName();
+
+        return "By using {$company}, customers agree to use WhatsApp messaging in compliance with the WhatsApp Business Messaging Policy and applicable laws, obtain valid consent where required, provide accurate business information, and not send spam, deceptive messages, or prohibited content. Customers are responsible for the content they send and for maintaining lawful contact lists. Platform subscription fees are charged by {$company}; Meta WhatsApp messaging or conversation charges may be billed separately according to the customer's Meta arrangement. Accounts may be suspended for abuse, security threats, unlawful use, or policy violations.";
     }
 
     protected function defaultDataDeletion(): string
     {
-        return 'To request deletion of your personal data: (1) Contact the business you have been messaging and ask them to delete your contact record, or (2) email our support team with your phone number. Workspace owners can delete contacts, export data, or request full workspace deletion from Settings. Deletion requests are processed within 30 days and logged for audit purposes.';
+        $privacyEmail = $this->privacyEmail();
+
+        return "To request deletion of personal data processed by this platform: (1) contact the business you have been messaging and ask it to delete your contact or conversation data, or (2) email {$privacyEmail} with enough information to identify the relevant account or phone number. Workspace owners can delete contacts from the CRM and may request full workspace deletion through support. We verify deletion requests before acting to prevent unauthorized deletion. Approved requests are processed within 30 days unless retention is required by law, fraud prevention, security, billing, or dispute-resolution obligations. When deletion is complete, production data is removed or irreversibly anonymized, subject to normal backup-retention windows.";
     }
 
     protected function defaultSupport(): string
     {
-        return 'For support, contact us at support@example.com. Our team responds within one business day.';
+        $company = $this->companyName();
+        $supportEmail = $this->supportEmail();
+        $supportUrl = config('compliance.support_url');
+        $urlText = filled($supportUrl) ? " Support portal: {$supportUrl}." : '';
+
+        return "For {$company} support, contact {$supportEmail}.{$urlText} Support requests are handled during normal business operations, with priority given to account access, WhatsApp connectivity, security, billing, and data-protection issues.";
     }
 
     protected function defaultCompany(): string
     {
-        return 'This platform is operated as a WhatsApp Business Solution built on the official Meta WhatsApp Business Platform.';
+        $company = $this->companyName();
+        $legalName = config('compliance.legal_name') ?: $company;
+        $address = config('compliance.company_address');
+        $addressText = filled($address) ? " Registered/business address: {$address}." : '';
+
+        return "{$company} is operated by {$legalName} and provides software for WhatsApp Business messaging, team inboxes, automations, templates, campaigns, and customer operations using the official Meta WhatsApp Business Platform.{$addressText} Support contact: {$this->supportEmail()}.";
+    }
+
+    protected function companyName(): string
+    {
+        return (string) (config('compliance.company_name') ?: config('app.name', 'WhatsFlow'));
+    }
+
+    protected function supportEmail(): string
+    {
+        return (string) (config('compliance.support_email') ?: config('mail.from.address') ?: 'support@localhost');
+    }
+
+    protected function privacyEmail(): string
+    {
+        return (string) (config('compliance.privacy_email') ?: $this->supportEmail());
     }
 }

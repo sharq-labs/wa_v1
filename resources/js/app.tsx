@@ -33,6 +33,8 @@ import CampaignsPage from '@/pages/campaigns/CampaignsPage';
 import AnalyticsPage from '@/pages/AnalyticsPage';
 import OperationsPage from '@/pages/operations/OperationsPage';
 import SettingsPage from '@/pages/settings/SettingsPage';
+import MetaConnectPage from '@/pages/settings/MetaConnectPage';
+import WhatsAppSettingsPage from '@/pages/settings/WhatsAppSettingsPage';
 import AdminPage from '@/pages/admin/AdminPage';
 
 function translate(key: string): string {
@@ -115,6 +117,8 @@ function Bootstrapped() {
                 <Route path="/campaigns" element={<CampaignsPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/operations" element={<OperationsPage />} />
+                <Route path="/settings/whatsapp" element={<WhatsAppSettingsPage />} />
+                <Route path="/settings/whatsapp/connect" element={<MetaConnectPage />} />
                 <Route path="/settings/*" element={<SettingsPage />} />
                 <Route path="/admin/*" element={<AdminPage />} />
             </Route>
