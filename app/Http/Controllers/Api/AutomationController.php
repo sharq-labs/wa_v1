@@ -55,7 +55,7 @@ class AutomationController extends ApiController
 
     public function show(Request $request, Workspace $workspace, Automation $automation): JsonResponse
     {
-        Gate::authorize('view', $workspace);
+        Gate::authorize('manageAutomations', $workspace);
         abort_unless($automation->workspace_id === $workspace->id, 404);
 
         $automation->load('publishedVersion:id,automation_id,version,published_at');
@@ -84,10 +84,6 @@ class AutomationController extends ApiController
         return $this->success($automation, __('Automation updated.'));
     }
 
-    /**
-     * Save the draft flow definition (autosave from the builder).
-     * Published versions are immutable — this only ever touches the draft.
-     */
     public function saveDraft(Request $request, Workspace $workspace, Automation $automation): JsonResponse
     {
         Gate::authorize('manageAutomations', $workspace);
@@ -115,23 +111,18 @@ class AutomationController extends ApiController
         return $this->success(['valid' => $errors === [], 'errors' => $errors]);
     }
 
-    /**
-     * Publish the draft as a new immutable version.
-     */
     public function publish(Request $request, Workspace $workspace, Automation $automation, FlowValidator $validator, AuditLogger $audit): JsonResponse
     {
         Gate::authorize('manageAutomations', $workspace);
         abort_unless($automation->workspace_id === $workspace->id, 404);
 
-        $definition = $automation->draft_definition
-            ?? $automation->publishedVersion?->definition;
+        $definition = $automation->draft_definition ?? $automation->publishedVersion?->definition;
 
         if (! $definition) {
             return $this->error(__('Nothing to publish yet.'));
         }
 
         $errors = $validator->validate($workspace, $definition);
-
         if ($errors !== []) {
             return $this->error(__('The flow has validation errors and cannot be published.'), [
                 'validation' => $errors,
@@ -148,7 +139,6 @@ class AutomationController extends ApiController
                 'published_at' => now(),
             ]);
 
-            // Also snapshot into relational node/edge tables for querying.
             foreach ($definition['nodes'] ?? [] as $node) {
                 $version->nodes()->create([
                     'node_id' => $node['id'],
@@ -214,7 +204,7 @@ class AutomationController extends ApiController
 
     public function runs(Request $request, Workspace $workspace, Automation $automation): JsonResponse
     {
-        Gate::authorize('view', $workspace);
+        Gate::authorize('manageAutomations', $workspace);
         abort_unless($automation->workspace_id === $workspace->id, 404);
 
         $runs = $automation->runs()
@@ -234,7 +224,7 @@ class AutomationController extends ApiController
 
     public function runDetail(Request $request, Workspace $workspace, Automation $automation, string $runUuid): JsonResponse
     {
-        Gate::authorize('view', $workspace);
+        Gate::authorize('manageAutomations', $workspace);
         abort_unless($automation->workspace_id === $workspace->id, 404);
 
         $run = $automation->runs()

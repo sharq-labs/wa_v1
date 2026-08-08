@@ -60,10 +60,12 @@ it('allows admins to invite members', function () {
     $ctx = createWorkspaceContext();
     $admin = addAgent($ctx['workspace'], 'Admin User', WorkspaceRole::Admin);
 
+    // This test is about authorization, not paid agent-seat limits. A viewer
+    // does not consume an agent seat, so the permission check stays isolated.
     $this->actingAs($admin)
         ->postJson("/api/workspaces/{$ctx['workspace']->id}/invitations", [
             'email' => 'invitee@example.com',
-            'role' => 'agent',
+            'role' => 'viewer',
         ])
         ->assertCreated();
 
@@ -74,11 +76,10 @@ it('never trusts workspace_id from the request body', function () {
     $a = createWorkspaceContext();
     $b = createWorkspaceContext();
 
-    // Attempt to create a contact in workspace B while authorized only for A.
     $this->actingAs($a['user'])
         ->postJson("/api/workspaces/{$a['workspace']->id}/contacts", [
             'phone_number' => '201099999999',
-            'workspace_id' => $b['workspace']->id, // must be ignored
+            'workspace_id' => $b['workspace']->id,
         ])
         ->assertCreated();
 

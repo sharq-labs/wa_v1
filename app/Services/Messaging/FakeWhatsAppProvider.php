@@ -7,15 +7,8 @@ use App\Models\WhatsAppAccount;
 use App\Models\WhatsAppTemplate;
 use Illuminate\Support\Str;
 
-/**
- * In-memory provider used for local development, automated tests and
- * Meta App Review demonstrations. Never performs network calls.
- *
- * Every sent message is recorded on the class so tests can assert against it.
- */
 class FakeWhatsAppProvider implements MessagingProviderInterface
 {
-    /** @var array<int, array<string, mixed>> */
     public static array $sent = [];
 
     public static bool $failNextSend = false;
@@ -35,7 +28,6 @@ class FakeWhatsAppProvider implements MessagingProviderInterface
         }
 
         $id = 'wamid.fake.'.Str::uuid();
-
         static::$sent[] = [
             'account_id' => $account->id,
             'to' => $to,
@@ -91,24 +83,34 @@ class FakeWhatsAppProvider implements MessagingProviderInterface
         return true;
     }
 
+    public function createTemplate(WhatsAppAccount $account, array $definition): array
+    {
+        return [
+            'id' => 'fake_'.Str::random(16),
+            'status' => 'APPROVED',
+            'category' => $definition['category'] ?? 'UTILITY',
+        ];
+    }
+
+    public function deleteTemplate(WhatsAppAccount $account, string $templateName): bool
+    {
+        return true;
+    }
+
     public function getTemplates(WhatsAppAccount $account): array
     {
-        return $account->templates()
-            ->get()
-            ->map(fn (WhatsAppTemplate $t) => [
-                'id' => $t->meta_template_id ?? 'fake_'.$t->id,
-                'name' => $t->name,
-                'language' => $t->language,
-                'category' => $t->category,
-                'status' => 'APPROVED',
-                'components' => [],
-            ])->all();
+        return $account->templates()->get()->map(fn (WhatsAppTemplate $t) => [
+            'id' => $t->meta_template_id ?? 'fake_'.$t->id,
+            'name' => $t->name,
+            'language' => $t->language,
+            'category' => $t->category,
+            'status' => 'APPROVED',
+            'components' => [],
+        ])->all();
     }
 
     public function syncTemplates(WhatsAppAccount $account): int
     {
-        // The fake provider auto-approves any pending local templates,
-        // simulating what a Meta sync would do after review.
         $updated = $account->templates()
             ->whereIn('status', [TemplateStatus::Pending, TemplateStatus::Draft])
             ->get()
@@ -118,8 +120,7 @@ class FakeWhatsAppProvider implements MessagingProviderInterface
                     'meta_template_id' => $template->meta_template_id ?? 'fake_'.Str::random(12),
                     'last_synced_at' => now(),
                 ]);
-            })
-            ->count();
+            })->count();
 
         $account->templates()->update(['last_synced_at' => now()]);
         $account->update(['last_sync_at' => now()]);

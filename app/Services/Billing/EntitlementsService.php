@@ -2,6 +2,7 @@
 
 namespace App\Services\Billing;
 
+use App\Enums\WorkspaceRole;
 use App\Models\SubscriptionUsage;
 use App\Models\Workspace;
 use Illuminate\Support\Facades\DB;
@@ -17,19 +18,16 @@ class EntitlementsService
     public function limit(Workspace $workspace, string $key, int $default = 0): ?int
     {
         $plan = $workspace->subscription?->plan;
-
         if (! $plan) {
             return $default;
         }
 
         $value = $plan->feature($key);
-
         if ($value === null) {
             return $default;
         }
-
         if ($value === self::UNLIMITED) {
-            return null; // null = unlimited
+            return null;
         }
 
         return (int) $value;
@@ -55,9 +53,18 @@ class EntitlementsService
         return $this->withinLimit($workspace, 'whatsapp_numbers', $workspace->whatsappAccounts()->count(), 1);
     }
 
+    public function agentCount(Workspace $workspace): int
+    {
+        $roles = collect(WorkspaceRole::cases())
+            ->filter(fn (WorkspaceRole $role) => $role->atLeast(WorkspaceRole::Agent))
+            ->pluck('value');
+
+        return $workspace->users()->wherePivotIn('role', $roles)->count();
+    }
+
     public function canAddAgent(Workspace $workspace): bool
     {
-        return $this->withinLimit($workspace, 'agents', $workspace->users()->count(), 2);
+        return $this->withinLimit($workspace, 'agents', $this->agentCount($workspace), 2);
     }
 
     public function canAddContact(Workspace $workspace): bool
@@ -83,13 +90,8 @@ class EntitlementsService
     public function canRunAutomation(Workspace $workspace): bool
     {
         $limit = $this->limit($workspace, 'automation_runs_monthly', 0);
-
-        if ($limit === null) {
+        if ($limit === null || $limit === 0) {
             return true;
-        }
-
-        if ($limit === 0) {
-            return true; // unset -> unmetered
         }
 
         return $this->usage($workspace, 'automation_runs') < $limit;
@@ -120,7 +122,6 @@ class EntitlementsService
         );
     }
 
-    /** @return array<string, mixed> summary for the billing UI */
     public function summary(Workspace $workspace): array
     {
         $subscription = $workspace->subscription?->load('plan.features');
@@ -147,7 +148,7 @@ class EntitlementsService
                     'limit' => $this->limit($workspace, 'whatsapp_numbers', 1),
                 ],
                 'agents' => [
-                    'used' => $workspace->users()->count(),
+                    'used' => $this->agentCount($workspace),
                     'limit' => $this->limit($workspace, 'agents', 2),
                 ],
                 'contacts' => [

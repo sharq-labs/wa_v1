@@ -25,6 +25,13 @@ class Automation extends Model
         'created_by',
     ];
 
+    // Drafts can contain HTTP credentials. Never expose them through generic
+    // model serialization/list endpoints; AutomationController::show returns a
+    // dedicated definition field only after manageAutomations authorization.
+    protected $hidden = [
+        'draft_definition',
+    ];
+
     protected function casts(): array
     {
         return [

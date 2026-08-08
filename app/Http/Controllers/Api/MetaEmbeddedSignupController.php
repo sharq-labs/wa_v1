@@ -11,14 +11,6 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Meta Embedded Signup flow.
- *
- * The frontend launches Meta's Embedded Signup dialog (FB.login with the
- * configured config_id). Meta returns an authorization code which we exchange
- * server-side for a business token, then discover the shared WABA and phone
- * number and persist the account. Tokens never reach the browser.
- */
 class MetaEmbeddedSignupController extends ApiController
 {
     public function config(Request $request, Workspace $workspace): JsonResponse
@@ -43,7 +35,7 @@ class MetaEmbeddedSignupController extends ApiController
 
         $data = $request->validate([
             'code' => ['required', 'string'],
-            'waba_id' => ['nullable', 'string'],
+            'waba_id' => ['required', 'string'],
             'phone_number_id' => ['nullable', 'string'],
         ]);
 
@@ -52,9 +44,9 @@ class MetaEmbeddedSignupController extends ApiController
         }
 
         $base = rtrim(config('meta.graph_base_url'), '/').'/'.config('meta.graph_api_version');
+        $client = Http::acceptJson()->connectTimeout(5)->timeout(15)->retry(2, 250, throw: false);
 
-        // 1. Exchange the Embedded Signup code for a business access token.
-        $tokenResponse = Http::acceptJson()->get("{$base}/oauth/access_token", [
+        $tokenResponse = $client->get("{$base}/oauth/access_token", [
             'client_id' => config('meta.app_id'),
             'client_secret' => config('meta.app_secret'),
             'code' => $data['code'],
@@ -68,31 +60,39 @@ class MetaEmbeddedSignupController extends ApiController
 
         $accessToken = $tokenResponse->json('access_token');
         $expiresIn = $tokenResponse->json('expires_in');
-
-        // 2. Resolve WABA and phone number details.
         $wabaId = $data['waba_id'];
         $phoneNumberId = $data['phone_number_id'];
+        $authorized = Http::withToken($accessToken)->acceptJson()
+            ->connectTimeout(5)->timeout(15)->retry(2, 250, throw: false);
 
-        if (! $wabaId) {
-            return $this->error(__('Missing WhatsApp Business Account id from signup.'), [], 422);
+        $wabaResponse = $authorized->get("{$base}/{$wabaId}", ['fields' => 'id,name,owner_business_info']);
+        if (! $wabaResponse->successful()) {
+            return $this->error(__('Could not read the WhatsApp Business Account returned by Meta.'), [], 502);
+        }
+        $waba = $wabaResponse->json();
+
+        $phonesResponse = $authorized->get("{$base}/{$wabaId}/phone_numbers", [
+            'fields' => 'id,display_phone_number,verified_name,quality_rating,messaging_limit_tier',
+        ]);
+        if (! $phonesResponse->successful()) {
+            return $this->error(__('Could not read phone numbers from the WhatsApp Business Account.'), [], 502);
         }
 
-        $waba = Http::withToken($accessToken)->acceptJson()
-            ->get("{$base}/{$wabaId}", ['fields' => 'id,name,owner_business_info'])
-            ->json();
-
-        $phones = Http::withToken($accessToken)->acceptJson()
-            ->get("{$base}/{$wabaId}/phone_numbers", ['fields' => 'id,display_phone_number,verified_name,quality_rating,messaging_limit_tier'])
-            ->json('data', []);
-
+        $phones = $phonesResponse->json('data', []);
         $phone = collect($phones)->firstWhere('id', $phoneNumberId) ?? ($phones[0] ?? null);
-
         if (! $phone) {
             return $this->error(__('No phone number found on the WhatsApp Business Account.'), [], 422);
         }
 
-        // 3. Subscribe our app to the WABA webhooks.
-        Http::withToken($accessToken)->post("{$base}/{$wabaId}/subscribed_apps");
+        $subscribeResponse = $authorized->post("{$base}/{$wabaId}/subscribed_apps");
+        if (! $subscribeResponse->successful() || $subscribeResponse->json('success') === false) {
+            Log::warning('Embedded signup WABA subscription failed', [
+                'waba_id' => $wabaId,
+                'status' => $subscribeResponse->status(),
+            ]);
+
+            return $this->error(__('WhatsApp was authorized but webhook subscription failed. The account was not connected.'), [], 502);
+        }
 
         $account = $workspace->whatsappAccounts()->updateOrCreate(
             ['phone_number_id' => $phone['id']],

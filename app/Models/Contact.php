@@ -29,6 +29,9 @@ class Contact extends Model
         'profile_picture',
         'status',
         'opt_in_status',
+        'opt_in_at',
+        'opt_out_at',
+        'consent_source',
         'last_seen_at',
         'last_message_at',
     ];
@@ -36,6 +39,8 @@ class Contact extends Model
     protected function casts(): array
     {
         return [
+            'opt_in_at' => 'datetime',
+            'opt_out_at' => 'datetime',
             'last_seen_at' => 'datetime',
             'last_message_at' => 'datetime',
         ];

@@ -5,6 +5,7 @@ namespace App\Services\Messaging;
 use App\Enums\MessageStatus;
 use App\Enums\TemplateStatus;
 use App\Events\MessageStatusChanged;
+use App\Models\CampaignRecipient;
 use App\Models\Message;
 use App\Models\WebhookEvent;
 use App\Models\WhatsAppAccount;
@@ -151,7 +152,8 @@ class WhatsAppEventProcessor
             MessageStatus::Failed->value => 4,
         ];
 
-        if (($order[$newStatus->value] ?? 0) <= ($order[$message->status->value] ?? 0)) {
+        $previousStatus = $message->status;
+        if (($order[$newStatus->value] ?? 0) <= ($order[$previousStatus->value] ?? 0)) {
             return;
         }
 
@@ -171,12 +173,70 @@ class WhatsAppEventProcessor
         }
 
         $message->forceFill($updates)->save();
+        $this->syncCampaignStatus($message, $previousStatus, $newStatus);
 
         broadcast(new MessageStatusChanged($message->workspace_id, [
             'message_id' => $message->id,
             'conversation_id' => $message->conversation_id,
             'status' => $newStatus->value,
         ]));
+    }
+
+    protected function syncCampaignStatus(Message $message, MessageStatus $previousStatus, MessageStatus $newStatus): void
+    {
+        $recipient = CampaignRecipient::query()
+            ->with('campaign')
+            ->where('message_id', $message->id)
+            ->first();
+
+        if (! $recipient || ! $recipient->campaign) {
+            return;
+        }
+
+        $campaign = $recipient->campaign;
+        $rank = [
+            MessageStatus::Queued->value => 0,
+            MessageStatus::Sent->value => 1,
+            MessageStatus::Delivered->value => 2,
+            MessageStatus::Read->value => 3,
+            MessageStatus::Failed->value => 4,
+        ];
+        $previousRank = $rank[$previousStatus->value] ?? 0;
+
+        if ($newStatus === MessageStatus::Delivered) {
+            if ($previousRank < $rank[MessageStatus::Delivered->value]) {
+                $campaign->increment('delivered_count');
+            }
+            $recipient->update(['status' => 'delivered', 'error_message' => null]);
+
+            return;
+        }
+
+        if ($newStatus === MessageStatus::Read) {
+            // Meta can occasionally skip the delivered callback and go directly
+            // from sent to read. A read implicitly means delivered.
+            if ($previousRank < $rank[MessageStatus::Delivered->value]) {
+                $campaign->increment('delivered_count');
+            }
+            if ($previousRank < $rank[MessageStatus::Read->value]) {
+                $campaign->increment('read_count');
+            }
+            $recipient->update(['status' => 'read', 'error_message' => null]);
+
+            return;
+        }
+
+        if ($newStatus === MessageStatus::Failed) {
+            // Immediate provider failures are already counted by the send job.
+            // A webhook failure after Meta first accepted the message is new.
+            if ($previousStatus !== MessageStatus::Failed) {
+                $campaign->increment('failed_count');
+            }
+            $recipient->update([
+                'status' => 'failed',
+                'error_message' => $message->error_message,
+            ]);
+        }
     }
 
     protected function handleTemplateStatus(array $value): void

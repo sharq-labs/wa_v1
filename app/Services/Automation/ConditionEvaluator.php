@@ -4,18 +4,6 @@ namespace App\Services\Automation;
 
 use Carbon\Carbon;
 
-/**
- * Evaluates condition node groups against an automation context.
- *
- * Config shape:
- * {
- *   "match": "all" | "any",
- *   "conditions": [
- *     {"source": "contact|custom|variable|message|tag|agent|team|conversation_status|working_hours|date|time",
- *      "key": "...", "operator": "equals|...", "value": "..."}
- *   ]
- * }
- */
 class ConditionEvaluator
 {
     public function evaluate(AutomationContext $ctx, array $config): bool
@@ -63,7 +51,6 @@ class ConditionEvaluator
         return $this->compare($actual, $operator, $expected, $source === 'tag');
     }
 
-    /** @return string tags joined for contains-style checks */
     protected function contactTags(AutomationContext $ctx): string
     {
         if (! $ctx->contact) {
@@ -76,24 +63,41 @@ class ConditionEvaluator
     protected function isWithinWorkingHours(AutomationContext $ctx): bool
     {
         $settings = $ctx->workspace->setting('working_hours');
-
         if (! is_array($settings)) {
-            // No configuration: treat as always within hours.
             return true;
         }
 
         $now = Carbon::now($ctx->workspace->timezone);
-        $day = strtolower($now->format('D')); // mon, tue...
+        $day = strtolower($now->format('D'));
         $today = $settings[$day] ?? null;
 
-        if (! $today || empty($today['enabled'])) {
-            return false;
+        if ($today && ! empty($today['enabled'])) {
+            $from = $today['from'] ?? '09:00';
+            $to = $today['to'] ?? '17:00';
+            $time = $now->format('H:i');
+
+            if ($from <= $to && $time >= $from && $time <= $to) {
+                return true;
+            }
+            if ($from > $to && $time >= $from) {
+                return true;
+            }
         }
 
-        $from = $today['from'] ?? '09:00';
-        $to = $today['to'] ?? '17:00';
+        // For an overnight shift (e.g. Mon 22:00 -> 06:00), the after-midnight
+        // portion belongs to the previous day's enabled schedule.
+        $previous = strtolower($now->copy()->subDay()->format('D'));
+        $previousConfig = $settings[$previous] ?? null;
+        if ($previousConfig && ! empty($previousConfig['enabled'])) {
+            $from = $previousConfig['from'] ?? '09:00';
+            $to = $previousConfig['to'] ?? '17:00';
 
-        return $now->format('H:i') >= $from && $now->format('H:i') <= $to;
+            if ($from > $to && $now->format('H:i') <= $to) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function compare(?string $actual, string $operator, mixed $expected, bool $isTagList = false): bool
