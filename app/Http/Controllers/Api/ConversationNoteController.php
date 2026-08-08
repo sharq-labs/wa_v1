@@ -52,10 +52,10 @@ class ConversationNoteController extends ApiController
             'workspace_id' => $workspace->id,
             'user_id' => $request->user()->id,
             'body' => $data['body'],
-            'mentions' => [
-                'tokens' => $matches[1] ?? [],
-                'user_ids' => $mentionIds->all(),
-            ],
+            // Preserve the existing API/storage contract: mentions remains a
+            // flat list of @mention tokens. Explicit user IDs are used only for
+            // accurate notification delivery and are not mixed into this field.
+            'mentions' => $matches[1] ?? [],
         ]);
 
         if ($mentionIds->isNotEmpty()) {
