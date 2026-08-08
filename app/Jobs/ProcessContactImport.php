@@ -92,6 +92,7 @@ class ProcessContactImport implements ShouldQueue
                     if ($contact) {
                         if (! $updateExisting) {
                             $counts['skipped']++;
+
                             continue;
                         }
                         if ($attributes !== []) {
