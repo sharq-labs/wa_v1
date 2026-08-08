@@ -3,9 +3,9 @@
 /**
  * Cross-platform local development launcher.
  *
- * Windows cannot run Laravel Horizon because Horizon depends on pcntl/posix,
- * so local Windows development uses queue:work instead. Linux/macOS keep
- * Horizon for parity with production-like queue supervision.
+ * Windows cannot run Laravel Horizon or Pail because they depend on pcntl,
+ * so local Windows development uses queue:work and a lightweight PHP log
+ * follower instead. Linux/macOS keep Horizon and Pail.
  */
 function fail(string $message): never
 {
@@ -71,20 +71,25 @@ $queueCommand = $isWindows
     ? 'php artisan queue:work --tries=1 --timeout=0'
     : 'php artisan horizon';
 $queueName = $isWindows ? 'queue' : 'horizon';
+$logCommand = $isWindows
+    ? 'php scripts/tail-log.php'
+    : 'php artisan pail --timeout=0';
+$logName = $isWindows ? 'logs' : 'pail';
 
 fwrite(STDOUT, sprintf(
-    "\n[dev] Starting WhatsFlow local stack on %s\n[dev] Node %s | npm %s | queue: %s\n\n",
+    "\n[dev] Starting WhatsFlow local stack on %s\n[dev] Node %s | npm %s | queue: %s | logs: %s\n\n",
     PHP_OS_FAMILY,
     $nodeVersion,
     $npmVersion,
     $queueName,
+    $logName,
 ));
 
 $commands = [
     'php artisan serve',
     $queueCommand,
     'php artisan schedule:work',
-    'php artisan pail --timeout=0',
+    $logCommand,
     'npm run dev',
     'php artisan reverb:start',
 ];
