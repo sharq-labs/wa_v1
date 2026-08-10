@@ -25,7 +25,9 @@ class MessageService
      */
     public function sendText(Conversation $conversation, string $text, array $options = []): Message
     {
-        return $this->createOutbound($conversation, MessageType::Text, ['content' => $text], $options);
+        return $this->createOutbound($conversation, MessageType::Text, [
+            'content' => $text,
+        ], $options);
     }
 
     public function sendMedia(Conversation $conversation, MessageType $type, string $url, ?string $caption = null, ?string $mime = null, array $options = []): Message
@@ -37,14 +39,22 @@ class MessageService
         ], $options);
     }
 
+    /**
+     * @param  array<int, array{id: string, title: string}>  $buttons
+     */
     public function sendButtons(Conversation $conversation, string $body, array $buttons, array $options = []): Message
     {
         return $this->createOutbound($conversation, MessageType::Interactive, [
             'content' => $body,
-            'payload' => ['interactive' => [
-                'type' => 'button', 'body' => $body, 'buttons' => $buttons,
-                'header' => $options['header'] ?? null, 'footer' => $options['footer'] ?? null,
-            ]],
+            'payload' => [
+                'interactive' => [
+                    'type' => 'button',
+                    'body' => $body,
+                    'buttons' => $buttons,
+                    'header' => $options['header'] ?? null,
+                    'footer' => $options['footer'] ?? null,
+                ],
+            ],
         ], $options);
     }
 
@@ -52,23 +62,35 @@ class MessageService
     {
         return $this->createOutbound($conversation, MessageType::Interactive, [
             'content' => $body,
-            'payload' => ['interactive' => [
-                'type' => 'list', 'body' => $body, 'button' => $buttonLabel, 'sections' => $sections,
-                'header' => $options['header'] ?? null, 'footer' => $options['footer'] ?? null,
-            ]],
+            'payload' => [
+                'interactive' => [
+                    'type' => 'list',
+                    'body' => $body,
+                    'button' => $buttonLabel,
+                    'sections' => $sections,
+                    'header' => $options['header'] ?? null,
+                    'footer' => $options['footer'] ?? null,
+                ],
+            ],
         ], $options);
     }
 
+    /**
+     * @param  array  $components  resolved Meta-format template components
+     * @param  string  $renderedText  human-readable preview stored as content
+     */
     public function sendTemplate(Conversation $conversation, WhatsAppTemplate $template, array $components, string $renderedText, array $options = []): Message
     {
         $message = $this->createOutbound($conversation, MessageType::Template, [
             'content' => $renderedText,
             'template_name' => $template->name,
-            'payload' => ['template' => [
-                'name' => $template->name,
-                'language' => $template->language,
-                'components' => $components,
-            ]],
+            'payload' => [
+                'template' => [
+                    'name' => $template->name,
+                    'language' => $template->language,
+                    'components' => $components,
+                ],
+            ],
         ], $options);
 
         $template->increment('usage_count');
@@ -110,6 +132,10 @@ class MessageService
         return $message->refresh();
     }
 
+    /**
+     * Deliver an already-created outbound message through the provider.
+     * Called from the SendOutboundMessage job.
+     */
     public function deliver(Message $message, MessagingManager $manager): void
     {
         $account = $message->whatsappAccount;
@@ -117,6 +143,7 @@ class MessageService
 
         if (! $account || ! $conversation) {
             $this->markFailed($message, 'no_account', 'Conversation has no WhatsApp account.');
+
             return;
         }
 
@@ -125,18 +152,22 @@ class MessageService
 
         if (! $to) {
             $this->markFailed($message, 'no_recipient', 'Contact has no WhatsApp id.');
+
             return;
         }
 
         $result = match ($message->message_type) {
-            MessageType::Text => $provider->sendText($account, $to, (string) $message->content, ['reply_to' => $message->replyTo?->provider_message_id]),
+            MessageType::Text => $provider->sendText($account, $to, (string) $message->content, [
+                'reply_to' => $message->replyTo?->provider_message_id,
+            ]),
             MessageType::Image => $provider->sendImage($account, $to, (string) $message->media_url, $message->content),
             MessageType::Video => $provider->sendVideo($account, $to, (string) $message->media_url, $message->content),
             MessageType::Audio => $provider->sendAudio($account, $to, (string) $message->media_url),
             MessageType::Document => $provider->sendDocument($account, $to, (string) $message->media_url, basename((string) $message->media_url), $message->content),
             MessageType::Interactive => $provider->sendInteractive($account, $to, $message->payload['interactive'] ?? []),
             MessageType::Template => $provider->sendTemplate(
-                $account, $to,
+                $account,
+                $to,
                 $message->payload['template']['name'] ?? (string) $message->template_name,
                 $message->payload['template']['language'] ?? 'en',
                 $message->payload['template']['components'] ?? [],
@@ -152,6 +183,7 @@ class MessageService
             ])->save();
         } else {
             $this->markFailed($message, $result->errorCode ?? 'unknown', $result->errorMessage ?? 'Unknown error');
+
             return;
         }
 
