@@ -17,9 +17,12 @@ class MetaWebhookController extends Controller
      */
     public function verify(Request $request): Response
     {
+        $verifyToken = trim((string) config('meta.webhook_verify_token'));
+
         if (
-            $request->query('hub_mode') === 'subscribe'
-            && hash_equals((string) config('meta.webhook_verify_token'), (string) $request->query('hub_verify_token'))
+            $verifyToken !== ''
+            && $request->query('hub_mode') === 'subscribe'
+            && hash_equals($verifyToken, (string) $request->query('hub_verify_token'))
         ) {
             return response($request->query('hub_challenge'), 200)->header('Content-Type', 'text/plain');
         }

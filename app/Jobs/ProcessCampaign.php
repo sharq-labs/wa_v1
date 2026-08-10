@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Enums\CampaignStatus;
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
+use App\Services\Billing\EntitlementsService;
 use App\Services\Campaigns\CampaignService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -29,11 +30,17 @@ class ProcessCampaign implements ShouldQueue
         $this->onQueue('campaigns');
     }
 
-    public function handle(CampaignService $service): void
+    public function handle(CampaignService $service, EntitlementsService $entitlements): void
     {
         $campaign = Campaign::query()->find($this->campaignId);
 
         if (! $campaign || ! in_array($campaign->status, [CampaignStatus::Scheduled, CampaignStatus::Processing], true)) {
+            return;
+        }
+
+        if (! $entitlements->canCreateCampaign($campaign->workspace)) {
+            $campaign->update(['status' => CampaignStatus::Paused]);
+
             return;
         }
 

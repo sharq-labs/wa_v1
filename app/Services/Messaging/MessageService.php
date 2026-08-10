@@ -194,7 +194,7 @@ class MessageService
         ]));
     }
 
-    protected function markFailed(Message $message, string $code, string $error): void
+    public function markFailed(Message $message, string $code, string $error): void
     {
         $message->forceFill([
             'status' => MessageStatus::Failed,

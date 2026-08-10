@@ -22,6 +22,12 @@ class MessagingManager
     {
         $name = $name ?: config('whatsapp.provider');
 
+        if ($name === 'fake'
+            && ! app()->environment(['local', 'testing'])
+            && ! config('whatsapp.allow_fake_accounts', false)) {
+            throw new InvalidArgumentException('Fake WhatsApp provider is disabled in this environment.');
+        }
+
         return match ($name) {
             'fake' => app(FakeWhatsAppProvider::class),
             'meta' => app(MetaWhatsAppProvider::class),

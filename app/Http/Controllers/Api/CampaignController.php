@@ -66,7 +66,7 @@ class CampaignController extends ApiController
     {
         Gate::authorize('manageCampaigns', $workspace);
         if (! $entitlements->canCreateCampaign($workspace)) {
-            return $this->error(__('Campaigns are not included in your plan. Please upgrade.'), [], 403);
+            return $this->campaignEntitlementError();
         }
 
         $data = $request->validate([
@@ -143,10 +143,14 @@ class CampaignController extends ApiController
         ]);
     }
 
-    public function duplicate(Request $request, Workspace $workspace, Campaign $campaign): JsonResponse
+    public function duplicate(Request $request, Workspace $workspace, Campaign $campaign, EntitlementsService $entitlements): JsonResponse
     {
         Gate::authorize('manageCampaigns', $workspace);
         abort_unless($campaign->workspace_id === $workspace->id, 404);
+
+        if (! $entitlements->canCreateCampaign($workspace)) {
+            return $this->campaignEntitlementError();
+        }
 
         $copy = Campaign::query()->create([
             'workspace_id' => $workspace->id,
@@ -163,10 +167,20 @@ class CampaignController extends ApiController
         return $this->success($copy, __('Campaign duplicated.'), 201);
     }
 
-    public function schedule(Request $request, Workspace $workspace, Campaign $campaign, CampaignService $service, AuditLogger $audit): JsonResponse
-    {
+    public function schedule(
+        Request $request,
+        Workspace $workspace,
+        Campaign $campaign,
+        CampaignService $service,
+        AuditLogger $audit,
+        EntitlementsService $entitlements,
+    ): JsonResponse {
         Gate::authorize('manageCampaigns', $workspace);
         abort_unless($campaign->workspace_id === $workspace->id, 404);
+
+        if (! $entitlements->canCreateCampaign($workspace)) {
+            return $this->campaignEntitlementError();
+        }
 
         if (! in_array($campaign->status, [CampaignStatus::Draft, CampaignStatus::Paused], true)) {
             return $this->error(__('Only draft or paused campaigns can be scheduled.'));
@@ -216,10 +230,20 @@ class CampaignController extends ApiController
         return $this->success($campaign, __('Campaign paused.'));
     }
 
-    public function resume(Request $request, Workspace $workspace, Campaign $campaign, CampaignService $service): JsonResponse
-    {
+    public function resume(
+        Request $request,
+        Workspace $workspace,
+        Campaign $campaign,
+        CampaignService $service,
+        EntitlementsService $entitlements,
+    ): JsonResponse {
         Gate::authorize('manageCampaigns', $workspace);
         abort_unless($campaign->workspace_id === $workspace->id, 404);
+
+        if (! $entitlements->canCreateCampaign($workspace)) {
+            return $this->campaignEntitlementError();
+        }
+
         if ($campaign->status !== CampaignStatus::Paused) {
             return $this->error(__('Only paused campaigns can be resumed.'));
         }
@@ -261,6 +285,11 @@ class CampaignController extends ApiController
                 'total' => $recipients->total(),
             ],
         ]);
+    }
+
+    protected function campaignEntitlementError(): JsonResponse
+    {
+        return $this->error(__('Campaigns are not included in your plan. Please upgrade.'), [], 403);
     }
 
     protected function analytics(Campaign $campaign): array

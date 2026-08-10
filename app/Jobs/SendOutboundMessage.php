@@ -44,12 +44,11 @@ class SendOutboundMessage implements ShouldQueue
         try {
             $messages->deliver($message, $manager);
         } catch (\Throwable $e) {
-            $message->forceFill([
-                'status' => MessageStatus::Failed,
-                'error_code' => 'delivery_exception',
-                'error_message' => mb_substr($e->getMessage(), 0, 2000),
-                'failed_at' => now(),
-            ])->save();
+            $messages->markFailed(
+                $message,
+                'delivery_exception',
+                mb_substr($e->getMessage(), 0, 2000),
+            );
             report($e);
         }
     }
