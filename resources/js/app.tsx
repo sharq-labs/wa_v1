@@ -7,9 +7,7 @@ import ConfirmDialogHost from '@/components/ConfirmDialogHost';
 import Layout from '@/components/Layout';
 import Toaster from '@/components/Toaster';
 import { ApiError } from '@/lib/api';
-import { I18nProvider } from '@/lib/i18n';
-import { en } from '@/locales/en';
-import { ar } from '@/locales/ar';
+import { dictionaries, I18nProvider } from '@/lib/i18n';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { describeError, toast } from '@/stores/toastStore';
@@ -38,8 +36,8 @@ import WhatsAppSettingsPage from '@/pages/settings/WhatsAppSettingsPage';
 import AdminPage from '@/pages/admin/AdminPage';
 
 function translate(key: string): string {
-    const locale = localStorage.getItem('locale') === 'ar' ? ar : en;
-    return locale[key] ?? en[key] ?? key;
+    const locale = localStorage.getItem('locale') === 'ar' ? 'ar' : 'en';
+    return dictionaries[locale][key] ?? dictionaries.en[key] ?? key;
 }
 
 const queryClient = new QueryClient({
