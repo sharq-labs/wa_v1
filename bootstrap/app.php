@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureSuperAdmin;
+use App\Http\Middleware\NormalizeApiPagination;
 use App\Http\Middleware\ResolveWorkspace;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -31,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
         $middleware->redirectGuestsTo('/login');
+        $middleware->api(append: [NormalizeApiPagination::class]);
 
         $middleware->alias([
             'workspace' => ResolveWorkspace::class,
