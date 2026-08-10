@@ -22,6 +22,7 @@ export const arFinalExtra: Record<string, string> = {
     'automations.select_in_settings': 'اختر من الإعدادات…',
 
     // Template sending from Inbox
+    'inbox.template': 'القالب',
     'inbox.variable_mapping': 'ربط المتغيرات',
     'inbox.source_static': 'نص ثابت',
     'inbox.source_contact': 'جهة الاتصال',
