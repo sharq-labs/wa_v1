@@ -7,6 +7,7 @@ use App\Services\Automation\AutomationContext;
 use App\Services\Automation\NodeHandlerInterface;
 use App\Services\Automation\NodeResult;
 use App\Services\Automation\VariableInterpolator;
+use GuzzleHttp\Psr7\Uri;
 use Illuminate\Support\Facades\Http;
 use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
@@ -51,6 +52,7 @@ class HttpRequestNodeHandler implements NodeHandlerInterface
                 $query[$q['key']] = $this->interpolator->interpolate((string) ($q['value'] ?? ''), $context->resolver());
             }
         }
+        $requestUrl = $this->mergeQueryParameters($url, $query);
 
         $body = null;
         if ($node['type'] === NodeType::SendWebhook->value) {
@@ -107,9 +109,9 @@ class HttpRequestNodeHandler implements NodeHandlerInterface
                 ->withOptions($options);
 
             $response = match ($method) {
-                'GET' => $pending->get($url, $query),
-                'DELETE' => $pending->withQueryParameters($query)->delete($url, is_array($body) ? $body : []),
-                default => $pending->withQueryParameters($query)->send($method, $url, [
+                'GET' => $pending->get($requestUrl),
+                'DELETE' => $pending->delete($requestUrl, is_array($body) ? $body : []),
+                default => $pending->send($method, $requestUrl, [
                     is_array($body) ? 'json' : 'body' => $body ?? [],
                 ]),
             };
@@ -152,6 +154,19 @@ class HttpRequestNodeHandler implements NodeHandlerInterface
             'status' => $status,
             'mapped' => count($config['response_mappings'] ?? []),
         ]);
+    }
+
+    protected function mergeQueryParameters(string $url, array $query): string
+    {
+        if ($query === []) {
+            return $url;
+        }
+
+        $uri = new Uri($url);
+        $existing = [];
+        parse_str($uri->getQuery(), $existing);
+
+        return (string) $uri->withQuery(http_build_query(array_merge($existing, $query)));
     }
 
     /** @return array{0: ?string, 1: ?string} */
