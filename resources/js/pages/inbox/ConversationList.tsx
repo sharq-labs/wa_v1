@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { Bot, Inbox, PauseCircle, SlidersHorizontal, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { agentsApi, tagsApi, whatsappApi } from '@/api';
 import { Avatar, Badge, Button, Input, Select, Spinner, statusColor } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
@@ -29,20 +29,7 @@ export default function ConversationList({
 }) {
     const { t, statusLabel, dateLocale } = useI18n();
     const workspaceId = useWorkspaceId();
-    const [searchDraft, setSearchDraft] = useState(filters.search);
     const [filtersOpen, setFiltersOpen] = useState(false);
-
-    useEffect(() => setSearchDraft(filters.search), [filters.search]);
-
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            if (searchDraft !== filters.search) {
-                onFiltersChange({ ...filters, search: searchDraft });
-            }
-        }, 300);
-        return () => clearTimeout(timer);
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce only on draft
-    }, [searchDraft]);
 
     const tags = useQuery({ queryKey: ['tags', workspaceId], queryFn: async () => (await tagsApi.list(workspaceId)).data });
     const teams = useQuery({ queryKey: ['teams', workspaceId], queryFn: async () => (await agentsApi.teams(workspaceId)).data });
@@ -66,8 +53,8 @@ export default function ConversationList({
                 <div className="flex gap-2">
                     <Input
                         placeholder={t('common.search')}
-                        value={searchDraft}
-                        onChange={(e) => setSearchDraft(e.target.value)}
+                        value={filters.search}
+                        onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
                         className="flex-1"
                     />
                     <button

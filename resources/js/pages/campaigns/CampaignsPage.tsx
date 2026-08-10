@@ -248,10 +248,9 @@ function CreateCampaignModal({ open, onClose, onCreated }: { open: boolean; onCl
         (template) => !form.whatsapp_account_id || template.whatsapp_account_id === Number(form.whatsapp_account_id),
     );
     const selectedTemplate = filteredTemplates.find((template) => template.id === Number(form.whatsapp_template_id));
-    const variableIndexes = useMemo(() => {
-        if (!selectedTemplate?.body) return [];
-        return [...new Set(Array.from(selectedTemplate.body.matchAll(/\{\{(\d+)\}\}/g), (match) => Number(match[1])))].sort((a, b) => a - b);
-    }, [selectedTemplate]);
+    const variableIndexes = selectedTemplate?.body
+        ? [...new Set(Array.from(selectedTemplate.body.matchAll(/\{\{(\d+)\}\}/g), (match) => Number(match[1])))].sort((a, b) => a - b)
+        : [];
 
     const audienceConfig = useMemo(() => {
         if (form.audience_type === 'tag') return form.tag_id ? { tag_id: Number(form.tag_id) } : null;
