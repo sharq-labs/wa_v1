@@ -42,10 +42,6 @@ class MetaEmbeddedSignupController extends ApiController
     {
         Gate::authorize('manageWhatsAppAccounts', $workspace);
 
-        if (! $entitlements->canAddWhatsAppAccount($workspace)) {
-            return $this->error(__('Your plan limit for WhatsApp numbers has been reached.'), [], 403);
-        }
-
         $data = $request->validate([
             'code' => ['required', 'string'],
             'waba_id' => ['required', 'string'],
@@ -53,6 +49,17 @@ class MetaEmbeddedSignupController extends ApiController
             'business_id' => ['nullable', 'string'],
             'pin' => ['required', 'digits:6'],
         ]);
+
+        // Reconnecting the same Meta phone must restore/update the original row
+        // instead of consuming another plan slot or orphaning old conversations.
+        $existingAccount = $workspace->whatsappAccounts()
+            ->withTrashed()
+            ->where('phone_number_id', $data['phone_number_id'])
+            ->first();
+
+        if (! $existingAccount && ! $entitlements->canAddWhatsAppAccount($workspace)) {
+            return $this->error(__('Your plan limit for WhatsApp numbers has been reached.'), [], 403);
+        }
 
         if (! config('meta.app_id') || ! config('meta.app_secret')) {
             return $this->error(__('Meta integration is not configured on this server.'), [], 503);
@@ -123,22 +130,32 @@ class MetaEmbeddedSignupController extends ApiController
             return $this->error(__('WhatsApp was registered, but webhook subscription failed. The account was not connected.'), [], 502);
         }
 
-        $account = $workspace->whatsappAccounts()->updateOrCreate(
-            ['phone_number_id' => $phone['id']],
-            [
-                'provider' => 'meta',
-                'meta_business_id' => $data['business_id'] ?? ($waba['owner_business_info']['id'] ?? null),
-                'waba_id' => $wabaId,
-                'display_phone_number' => $phone['display_phone_number'] ?? null,
-                'verified_name' => $phone['verified_name'] ?? null,
-                'access_token' => $accessToken,
-                'token_expiration' => $expiresIn ? now()->addSeconds((int) $expiresIn) : null,
-                'quality_rating' => $phone['quality_rating'] ?? null,
-                'messaging_limit' => $phone['messaging_limit_tier'] ?? null,
-                'status' => 'connected',
-                'last_sync_at' => now(),
-            ],
-        );
+        $attributes = [
+            'provider' => 'meta',
+            'meta_business_id' => $data['business_id'] ?? ($waba['owner_business_info']['id'] ?? null),
+            'waba_id' => $wabaId,
+            'display_phone_number' => $phone['display_phone_number'] ?? null,
+            'verified_name' => $phone['verified_name'] ?? null,
+            'access_token' => $accessToken,
+            'token_expiration' => $expiresIn ? now()->addSeconds((int) $expiresIn) : null,
+            'quality_rating' => $phone['quality_rating'] ?? null,
+            'messaging_limit' => $phone['messaging_limit_tier'] ?? null,
+            'status' => 'connected',
+            'last_sync_at' => now(),
+        ];
+
+        if ($existingAccount) {
+            if ($existingAccount->trashed()) {
+                $existingAccount->restore();
+            }
+            $existingAccount->update($attributes);
+            $account = $existingAccount->fresh();
+        } else {
+            $account = $workspace->whatsappAccounts()->create([
+                'phone_number_id' => $phone['id'],
+                ...$attributes,
+            ]);
+        }
 
         $audit->log('whatsapp.connect', $workspace, $request->user(), $account, ['provider' => 'meta']);
 
