@@ -176,11 +176,15 @@ class ConversationController extends ApiController
         Gate::authorize('useInbox', $workspace);
         abort_unless($conversation->workspace_id === $workspace->id, 404);
 
+        $data = $request->validate([
+            'typing' => ['sometimes', 'boolean'],
+        ]);
+
         broadcast(new AgentTyping($workspace->id, [
             'conversation_id' => $conversation->id,
             'user_id' => $request->user()->id,
             'user_name' => $request->user()->name,
-            'typing' => (bool) $request->input('typing', true),
+            'typing' => (bool) ($data['typing'] ?? true),
         ]))->toOthers();
 
         return $this->success(null);
