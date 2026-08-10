@@ -30,6 +30,10 @@ class WhatsAppAccountController extends ApiController
     {
         Gate::authorize('manageWhatsAppAccounts', $workspace);
 
+        if (! app()->environment(['local', 'testing']) && ! config('whatsapp.allow_fake_accounts', false)) {
+            return $this->error(__('Fake WhatsApp accounts are disabled in this environment.'), [], 404);
+        }
+
         if (! $entitlements->canAddWhatsAppAccount($workspace)) {
             return $this->error(
                 __('Your plan limit for WhatsApp numbers has been reached. Please upgrade your plan.'),
