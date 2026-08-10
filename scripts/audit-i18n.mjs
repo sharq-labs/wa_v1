@@ -77,7 +77,19 @@ const ignoredFragments = [
 function ignored(text) {
     const compact = text.trim();
     if (!compact) return true;
-    // Very long regex captures are source-code false positives rather than JSX copy.
+    // Regexes that scan JSX may occasionally capture TypeScript around a `>`
+    // comparison/operator. These markers identify source code, not visible copy.
+    if (
+        compact.includes('const ') ||
+        compact.includes('=>') ||
+        compact.includes('config.') ||
+        compact.includes('onChange=') ||
+        compact.includes('value=') ||
+        compact.includes('className=') ||
+        compact.includes(' t(`') ||
+        compact.includes(" t('") ||
+        compact.includes(' t("')
+    ) return true;
     if (compact.length > 160) return true;
     if (/^[A-Z0-9_./:+#-]+$/.test(compact)) return true;
     if (/^[a-z0-9_.-]+$/.test(compact)) return true;
