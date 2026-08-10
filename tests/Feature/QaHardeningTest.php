@@ -7,9 +7,12 @@ use App\Jobs\SendOutboundMessage;
 use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\User;
 use App\Services\Messaging\MessageService;
 use App\Services\Messaging\MessagingManager;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
+use InvalidArgumentException;
 use Mockery\MockInterface;
 
 it('normalizes unsafe API pagination values instead of crashing list endpoints', function () {
@@ -39,6 +42,28 @@ it('blocks fake WhatsApp account creation outside local and testing unless expli
     } finally {
         app()->detectEnvironment(fn () => $originalEnvironment);
     }
+});
+
+it('blocks the fake messaging provider itself outside safe environments', function () {
+    $originalEnvironment = app()->environment();
+
+    try {
+        app()->detectEnvironment(fn () => 'production');
+        config(['whatsapp.allow_fake_accounts' => false]);
+
+        expect(fn () => app(MessagingManager::class)->driver('fake'))
+            ->toThrow(InvalidArgumentException::class, 'Fake WhatsApp provider is disabled');
+    } finally {
+        app()->detectEnvironment(fn () => $originalEnvironment);
+    }
+});
+
+it('lets only platform super admins access Horizon', function () {
+    $superAdmin = User::factory()->create(['is_super_admin' => true]);
+    $regularUser = User::factory()->create(['is_super_admin' => false]);
+
+    expect(Gate::forUser($superAdmin)->allows('viewHorizon'))->toBeTrue()
+        ->and(Gate::forUser($regularUser)->allows('viewHorizon'))->toBeFalse();
 });
 
 it('does not add viewer-only users to agent teams', function () {
