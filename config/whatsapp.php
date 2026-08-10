@@ -7,6 +7,7 @@ $keywordList = static fn (string $envKey, string $fallback): array => array_valu
 
 return [
     'provider' => env('WHATSAPP_PROVIDER', 'fake'),
+    'allow_fake_accounts' => (bool) env('WHATSAPP_ALLOW_FAKE_ACCOUNTS', false),
     'service_window_hours' => (int) env('WHATSAPP_SERVICE_WINDOW_HOURS', 24),
 
     // System-level consent keywords are handled before automations. They change
