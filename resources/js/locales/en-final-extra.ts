@@ -22,6 +22,7 @@ export const enFinalExtra: Record<string, string> = {
     'automations.select_in_settings': 'Select in settings…',
 
     // Template sending from Inbox
+    'inbox.template': 'Template',
     'inbox.variable_mapping': 'Variable mapping',
     'inbox.source_static': 'Static',
     'inbox.source_contact': 'Contact',
