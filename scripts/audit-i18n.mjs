@@ -8,11 +8,13 @@ const localeFiles = {
         path.join(jsRoot, 'locales', 'en.ts'),
         path.join(jsRoot, 'locales', 'en-extra.ts'),
         path.join(jsRoot, 'locales', 'en-automation-extra.ts'),
+        path.join(jsRoot, 'locales', 'en-final-extra.ts'),
     ],
     ar: [
         path.join(jsRoot, 'locales', 'ar.ts'),
         path.join(jsRoot, 'locales', 'ar-extra.ts'),
         path.join(jsRoot, 'locales', 'ar-automation-extra.ts'),
+        path.join(jsRoot, 'locales', 'ar-final-extra.ts'),
     ],
 };
 
@@ -75,8 +77,11 @@ const ignoredFragments = [
 function ignored(text) {
     const compact = text.trim();
     if (!compact) return true;
+    // Very long regex captures are source-code false positives rather than JSX copy.
+    if (compact.length > 160) return true;
     if (/^[A-Z0-9_./:+#-]+$/.test(compact)) return true;
     if (/^[a-z0-9_.-]+$/.test(compact)) return true;
+    if (/^(?:custom|variables)\.[a-z0-9_.-]+(?:\s*\/\s*(?:custom|variables)\.[a-z0-9_.-]+)*$/i.test(compact)) return true;
     if (ignoredFragments.includes(compact)) return true;
     if (compact.includes('{{') || compact.includes('}}')) return true;
     return false;
