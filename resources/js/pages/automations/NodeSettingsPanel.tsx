@@ -97,7 +97,7 @@ export default function NodeSettingsPanel({
         if ((config.sections ?? []).length > 0) return;
         onChange({
             ...config,
-            button: config.button || 'Select',
+            button: config.button || t('automations.list_button_placeholder'),
             sections: structuredClone(NODE_META.send_list.defaults.sections),
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -110,8 +110,8 @@ export default function NodeSettingsPanel({
                 onChange={(e) => onValue(e.target.value === 'variables' ? 'variables.' : 'custom.')}
                 className="!w-28"
             >
-                <option value="custom">Custom field</option>
-                <option value="variables">Variable</option>
+                <option value="custom">{t('automations.custom_field')}</option>
+                <option value="variables">{t('automations.variable')}</option>
             </Select>
             {value.startsWith('custom.') || value === '' ? (
                 <Select value={value.replace('custom.', '')} onChange={(e) => onValue(`custom.${e.target.value}`)}>
@@ -158,28 +158,13 @@ export default function NodeSettingsPanel({
                         </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-0.5">
-                        <button
-                            type="button"
-                            onClick={onDuplicate}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                            title={t('automations.node_duplicate')}
-                        >
+                        <button type="button" onClick={onDuplicate} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title={t('automations.node_duplicate')}>
                             <Copy size={15} />
                         </button>
-                        <button
-                            type="button"
-                            onClick={onDelete}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                            title={t('automations.node_delete')}
-                        >
+                        <button type="button" onClick={onDelete} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title={t('automations.node_delete')}>
                             <Trash2 size={15} />
                         </button>
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                            title={t('common.close')}
-                        >
+                        <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title={t('common.close')}>
                             <X size={15} />
                         </button>
                     </div>
@@ -191,22 +176,20 @@ export default function NodeSettingsPanel({
                 {type === 'trigger_keyword' && (
                     <>
                         <div>
-                            <Label>Keywords (comma separated)</Label>
+                            <Label>{t('automations.keywords')}</Label>
                             <Input
                                 value={(config.keywords ?? []).join(', ')}
-                                onChange={(e) =>
-                                    set({ keywords: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })
-                                }
+                                onChange={(e) => set({ keywords: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
                                 placeholder="سعر, price"
                             />
                         </div>
                         <div>
-                            <Label>Match type</Label>
+                            <Label>{t('automations.match_type')}</Label>
                             <Select value={config.match_type ?? 'contains'} onChange={(e) => set({ match_type: e.target.value })}>
-                                <option value="contains">Contains text</option>
-                                <option value="exact">Exact message</option>
-                                <option value="starts_with">Starts with</option>
-                                <option value="ends_with">Ends with</option>
+                                <option value="contains">{t('automations.match_contains')}</option>
+                                <option value="exact">{t('automations.match_exact')}</option>
+                                <option value="starts_with">{t('automations.match_starts')}</option>
+                                <option value="ends_with">{t('automations.match_ends')}</option>
                             </Select>
                         </div>
                     </>
@@ -242,18 +225,8 @@ export default function NodeSettingsPanel({
                         {type !== 'send_audio' && (
                             <div>
                                 <Label>{t('automations.field_caption')}</Label>
-                                <Input
-                                    ref={captionFieldRef}
-                                    value={config.caption ?? ''}
-                                    onChange={(e) => set({ caption: e.target.value })}
-                                />
-                                <VariableChips
-                                    value={config.caption ?? ''}
-                                    onChange={(next) => set({ caption: next })}
-                                    inputRef={captionFieldRef}
-                                    customFields={customFieldOptions}
-                                    flowVariables={flowVariables}
-                                />
+                                <Input ref={captionFieldRef} value={config.caption ?? ''} onChange={(e) => set({ caption: e.target.value })} />
+                                <VariableChips value={config.caption ?? ''} onChange={(next) => set({ caption: next })} inputRef={captionFieldRef} customFields={customFieldOptions} flowVariables={flowVariables} />
                             </div>
                         )}
                     </>
@@ -262,16 +235,9 @@ export default function NodeSettingsPanel({
                 {type === 'send_template' && (
                     <div>
                         <Label>{t('automations.field_template')}</Label>
-                        <Select
-                            value={config.template_id ?? ''}
-                            onChange={(e) => set({ template_id: e.target.value ? Number(e.target.value) : null })}
-                        >
+                        <Select value={config.template_id ?? ''} onChange={(e) => set({ template_id: e.target.value ? Number(e.target.value) : null })}>
                             <option value="">—</option>
-                            {templates.data?.map((tpl) => (
-                                <option key={tpl.id} value={tpl.id}>
-                                    {tpl.name} ({tpl.language})
-                                </option>
-                            ))}
+                            {templates.data?.map((tpl) => <option key={tpl.id} value={tpl.id}>{tpl.name} ({tpl.language})</option>)}
                         </Select>
                     </div>
                 )}
@@ -280,19 +246,8 @@ export default function NodeSettingsPanel({
                     <>
                         <div>
                             <Label>{t('automations.field_question')}</Label>
-                            <Textarea
-                                ref={questionFieldRef}
-                                rows={3}
-                                value={config.question ?? ''}
-                                onChange={(e) => set({ question: e.target.value })}
-                            />
-                            <VariableChips
-                                value={config.question ?? ''}
-                                onChange={(next) => set({ question: next })}
-                                inputRef={questionFieldRef}
-                                customFields={customFieldOptions}
-                                flowVariables={flowVariables}
-                            />
+                            <Textarea ref={questionFieldRef} rows={3} value={config.question ?? ''} onChange={(e) => set({ question: e.target.value })} />
+                            <VariableChips value={config.question ?? ''} onChange={(next) => set({ question: next })} inputRef={questionFieldRef} customFields={customFieldOptions} flowVariables={flowVariables} />
                         </div>
                         <div>
                             <Label>{t('automations.save_to')}</Label>
@@ -302,17 +257,14 @@ export default function NodeSettingsPanel({
                             <Label>{t('automations.field_validation')}</Label>
                             <Select value={config.validation ?? 'text'} onChange={(e) => set({ validation: e.target.value })}>
                                 {['text', 'number', 'email', 'phone', 'date', 'choice'].map((v) => (
-                                    <option key={v}>{v}</option>
+                                    <option key={v} value={v}>{t(`automations.validation_${v}`)}</option>
                                 ))}
                             </Select>
                         </div>
                         {config.validation === 'choice' && (
                             <div>
                                 <Label>{t('automations.allowed_choices')}</Label>
-                                <Input
-                                    value={(config.choices ?? []).join(', ')}
-                                    onChange={(e) => set({ choices: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
-                                />
+                                <Input value={(config.choices ?? []).join(', ')} onChange={(e) => set({ choices: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} />
                             </div>
                         )}
                         <div>
@@ -325,65 +277,26 @@ export default function NodeSettingsPanel({
                 {type === 'send_buttons' && (
                     <>
                         <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs">
-                            <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
-                                {t('automations.field_body')}
-                            </p>
-                            <div>
-                                <Label>{t('automations.field_header')}</Label>
-                                <Input
-                                    value={config.header ?? ''}
-                                    maxLength={60}
-                                    onChange={(e) => set({ header: e.target.value })}
-                                    placeholder={t('automations.optional')}
-                                />
-                            </div>
+                            <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">{t('automations.field_body')}</p>
+                            <div><Label>{t('automations.field_header')}</Label><Input value={config.header ?? ''} maxLength={60} onChange={(e) => set({ header: e.target.value })} placeholder={t('automations.optional')} /></div>
                             <div>
                                 <Label>{t('automations.field_body')}</Label>
-                                <Textarea
-                                    ref={bodyFieldRef}
-                                    rows={3}
-                                    value={config.body ?? ''}
-                                    onChange={(e) => set({ body: e.target.value })}
-                                    placeholder={t('automations.placeholder_choose')}
-                                />
-                                <VariableChips
-                                    value={config.body ?? ''}
-                                    onChange={(next) => set({ body: next })}
-                                    inputRef={bodyFieldRef}
-                                    customFields={customFieldOptions}
-                                    flowVariables={flowVariables}
-                                />
+                                <Textarea ref={bodyFieldRef} rows={3} value={config.body ?? ''} onChange={(e) => set({ body: e.target.value })} placeholder={t('automations.placeholder_choose')} />
+                                <VariableChips value={config.body ?? ''} onChange={(next) => set({ body: next })} inputRef={bodyFieldRef} customFields={customFieldOptions} flowVariables={flowVariables} />
                             </div>
-                            <div>
-                                <Label>{t('automations.field_footer')}</Label>
-                                <Input
-                                    value={config.footer ?? ''}
-                                    maxLength={60}
-                                    onChange={(e) => set({ footer: e.target.value })}
-                                    placeholder={t('automations.optional')}
-                                />
-                            </div>
+                            <div><Label>{t('automations.field_footer')}</Label><Input value={config.footer ?? ''} maxLength={60} onChange={(e) => set({ footer: e.target.value })} placeholder={t('automations.optional')} /></div>
                         </section>
 
                         <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs">
                             <div className="flex items-center justify-between gap-2">
-                                <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
-                                    {t('automations.field_buttons')}
-                                </p>
-                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                                    {(config.buttons ?? []).length}/3
-                                </span>
+                                <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">{t('automations.field_buttons')}</p>
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">{(config.buttons ?? []).length}/3</span>
                             </div>
                             <p className="text-[12px] leading-snug text-slate-500">{t('automations.buttons_hint')}</p>
                             <div className="space-y-2">
                                 {(config.buttons ?? []).map((button: any, i: number) => (
-                                    <div
-                                        key={button.id ?? i}
-                                        className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-2.5 py-2"
-                                    >
-                                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-white text-[11px] font-bold text-slate-500 ring-1 ring-slate-200">
-                                            {i + 1}
-                                        </span>
+                                    <div key={button.id ?? i} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-2.5 py-2">
+                                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-white text-[11px] font-bold text-slate-500 ring-1 ring-slate-200">{i + 1}</span>
                                         <Input
                                             value={button.title ?? ''}
                                             maxLength={20}
@@ -391,46 +304,18 @@ export default function NodeSettingsPanel({
                                             placeholder={`${t('automations.option')} ${i + 1}`}
                                             onChange={(e) => {
                                                 const buttons = [...(config.buttons ?? [])];
-                                                buttons[i] = {
-                                                    ...buttons[i],
-                                                    id: buttons[i].id || `btn_${i + 1}`,
-                                                    title: e.target.value,
-                                                };
+                                                buttons[i] = { ...buttons[i], id: buttons[i].id || `btn_${i + 1}`, title: e.target.value };
                                                 set({ buttons });
                                             }}
                                         />
-                                        <button
-                                            type="button"
-                                            disabled={(config.buttons ?? []).length <= 1}
-                                            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
-                                            onClick={() =>
-                                                set({
-                                                    buttons: (config.buttons ?? []).filter((_: any, j: number) => j !== i),
-                                                })
-                                            }
-                                        >
+                                        <button type="button" disabled={(config.buttons ?? []).length <= 1} className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30" onClick={() => set({ buttons: (config.buttons ?? []).filter((_: any, j: number) => j !== i) })}>
                                             <Trash2 size={14} />
                                         </button>
                                     </div>
                                 ))}
                             </div>
                             {(config.buttons ?? []).length < 3 && (
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    className="w-full"
-                                    onClick={() =>
-                                        set({
-                                            buttons: [
-                                                ...(config.buttons ?? []),
-                                                {
-                                                    id: `btn_${Date.now().toString(36)}`,
-                                                    title: `${t('automations.option')} ${(config.buttons ?? []).length + 1}`,
-                                                },
-                                            ],
-                                        })
-                                    }
-                                >
+                                <Button variant="secondary" size="sm" className="w-full" onClick={() => set({ buttons: [...(config.buttons ?? []), { id: `btn_${Date.now().toString(36)}`, title: `${t('automations.option')} ${(config.buttons ?? []).length + 1}` }] })}>
                                     + {t('automations.add_button')}
                                 </Button>
                             )}
@@ -446,86 +331,30 @@ export default function NodeSettingsPanel({
                 {type === 'send_list' && (
                     <>
                         <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs">
-                            <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
-                                {t('automations.field_body')}
-                            </p>
-                            <div>
-                                <Label>{t('automations.field_header')}</Label>
-                                <Input
-                                    value={config.header ?? ''}
-                                    maxLength={60}
-                                    onChange={(e) => set({ header: e.target.value })}
-                                    placeholder={t('automations.optional')}
-                                />
-                            </div>
+                            <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">{t('automations.field_body')}</p>
+                            <div><Label>{t('automations.field_header')}</Label><Input value={config.header ?? ''} maxLength={60} onChange={(e) => set({ header: e.target.value })} placeholder={t('automations.optional')} /></div>
                             <div>
                                 <Label>{t('automations.field_body')}</Label>
-                                <Textarea
-                                    ref={bodyFieldRef}
-                                    rows={3}
-                                    value={config.body ?? ''}
-                                    onChange={(e) => set({ body: e.target.value })}
-                                    placeholder={t('automations.placeholder_list_body')}
-                                />
-                                <VariableChips
-                                    value={config.body ?? ''}
-                                    onChange={(next) => set({ body: next })}
-                                    inputRef={bodyFieldRef}
-                                    customFields={customFieldOptions}
-                                    flowVariables={flowVariables}
-                                />
+                                <Textarea ref={bodyFieldRef} rows={3} value={config.body ?? ''} onChange={(e) => set({ body: e.target.value })} placeholder={t('automations.placeholder_list_body')} />
+                                <VariableChips value={config.body ?? ''} onChange={(next) => set({ body: next })} inputRef={bodyFieldRef} customFields={customFieldOptions} flowVariables={flowVariables} />
                             </div>
                             <div className="grid grid-cols-2 gap-2.5">
-                                <div>
-                                    <Label>{t('automations.list_button_label')}</Label>
-                                    <Input
-                                        value={config.button ?? ''}
-                                        maxLength={20}
-                                        onChange={(e) => set({ button: e.target.value })}
-                                        placeholder={t('automations.list_button_placeholder')}
-                                    />
-                                </div>
-                                <div>
-                                    <Label>{t('automations.field_footer')}</Label>
-                                    <Input
-                                        value={config.footer ?? ''}
-                                        maxLength={60}
-                                        onChange={(e) => set({ footer: e.target.value })}
-                                        placeholder={t('automations.optional')}
-                                    />
-                                </div>
+                                <div><Label>{t('automations.list_button_label')}</Label><Input value={config.button ?? ''} maxLength={20} onChange={(e) => set({ button: e.target.value })} placeholder={t('automations.list_button_placeholder')} /></div>
+                                <div><Label>{t('automations.field_footer')}</Label><Input value={config.footer ?? ''} maxLength={60} onChange={(e) => set({ footer: e.target.value })} placeholder={t('automations.optional')} /></div>
                             </div>
                         </section>
 
                         <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs">
                             <div className="flex items-start justify-between gap-2">
-                                <div>
-                                    <p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">
-                                        {t('automations.list_sections')}
-                                    </p>
-                                    <p className="mt-1 text-[12px] leading-snug text-slate-500">
-                                        {t('automations.list_sections_hint')}
-                                    </p>
-                                </div>
-                                <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700 ring-1 ring-brand-100">
-                                    {listRowCount}/10
-                                </span>
+                                <div><p className="text-[11px] font-bold tracking-wide text-slate-400 uppercase">{t('automations.list_sections')}</p><p className="mt-1 text-[12px] leading-snug text-slate-500">{t('automations.list_sections_hint')}</p></div>
+                                <span className="shrink-0 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700 ring-1 ring-brand-100">{listRowCount}/10</span>
                             </div>
-
-                            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                                <div
-                                    className="h-full rounded-full bg-brand-500 transition-all"
-                                    style={{ width: `${Math.min(100, (listRowCount / 10) * 100)}%` }}
-                                />
-                            </div>
-
+                            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${Math.min(100, (listRowCount / 10) * 100)}%` }} /></div>
                             <div className="space-y-4">
                                 {(config.sections ?? []).map((section: any, si: number) => (
                                     <div key={si} className="border-t border-slate-200 pt-3 first:border-t-0 first:pt-0">
                                         <div className="mb-2 flex items-center gap-2">
-                                            <span className="shrink-0 text-[12px] font-semibold text-slate-700">
-                                                {t('automations.section')} {si + 1}
-                                            </span>
+                                            <span className="shrink-0 text-[12px] font-semibold text-slate-700">{t('automations.section')} {si + 1}</span>
                                             <Input
                                                 value={section.title ?? ''}
                                                 maxLength={24}
@@ -537,33 +366,16 @@ export default function NodeSettingsPanel({
                                                     set({ sections });
                                                 }}
                                             />
-                                            <button
-                                                type="button"
-                                                disabled={(config.sections ?? []).length <= 1}
-                                                className="shrink-0 rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
-                                                title={t('automations.node_delete')}
-                                                onClick={() =>
-                                                    set({
-                                                        sections: (config.sections ?? []).filter(
-                                                            (_: any, j: number) => j !== si,
-                                                        ),
-                                                    })
-                                                }
-                                            >
+                                            <button type="button" disabled={(config.sections ?? []).length <= 1} className="shrink-0 rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-30" title={t('automations.node_delete')} onClick={() => set({ sections: (config.sections ?? []).filter((_: any, j: number) => j !== si) })}>
                                                 <Trash2 size={15} />
                                             </button>
                                         </div>
-
                                         <div className="ms-1 border-s-2 border-slate-200 ps-3">
-                                            <p className="mb-2 text-[12px] font-medium text-slate-600">
-                                                {t('automations.list_rows')}
-                                            </p>
+                                            <p className="mb-2 text-[12px] font-medium text-slate-600">{t('automations.list_rows')}</p>
                                             <div className="divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
                                                 {(section.rows ?? []).map((row: any, ri: number) => (
                                                     <div key={row.id ?? ri} className="flex gap-2 px-2.5 py-2.5">
-                                                        <span className="mt-2 w-4 shrink-0 text-[12px] font-semibold text-slate-500">
-                                                            {ri + 1}.
-                                                        </span>
+                                                        <span className="mt-2 w-4 shrink-0 text-[12px] font-semibold text-slate-500">{ri + 1}.</span>
                                                         <div className="min-w-0 flex-1 space-y-1.5">
                                                             <Input
                                                                 value={row.title ?? ''}
@@ -573,13 +385,7 @@ export default function NodeSettingsPanel({
                                                                 onChange={(e) => {
                                                                     const sections = [...(config.sections ?? [])];
                                                                     const rows = [...(sections[si].rows ?? [])];
-                                                                    rows[ri] = {
-                                                                        ...rows[ri],
-                                                                        id:
-                                                                            rows[ri].id ||
-                                                                            `row_${Date.now().toString(36)}`,
-                                                                        title: e.target.value,
-                                                                    };
+                                                                    rows[ri] = { ...rows[ri], id: rows[ri].id || `row_${Date.now().toString(36)}`, title: e.target.value };
                                                                     sections[si] = { ...sections[si], rows };
                                                                     set({ sections });
                                                                 }}
@@ -592,10 +398,7 @@ export default function NodeSettingsPanel({
                                                                 onChange={(e) => {
                                                                     const sections = [...(config.sections ?? [])];
                                                                     const rows = [...(sections[si].rows ?? [])];
-                                                                    rows[ri] = {
-                                                                        ...rows[ri],
-                                                                        description: e.target.value,
-                                                                    };
+                                                                    rows[ri] = { ...rows[ri], description: e.target.value };
                                                                     sections[si] = { ...sections[si], rows };
                                                                     set({ sections });
                                                                 }}
@@ -608,12 +411,7 @@ export default function NodeSettingsPanel({
                                                             title={t('automations.node_delete')}
                                                             onClick={() => {
                                                                 const sections = [...(config.sections ?? [])];
-                                                                sections[si] = {
-                                                                    ...sections[si],
-                                                                    rows: (sections[si].rows ?? []).filter(
-                                                                        (_: any, j: number) => j !== ri,
-                                                                    ),
-                                                                };
+                                                                sections[si] = { ...sections[si], rows: (sections[si].rows ?? []).filter((_: any, j: number) => j !== ri) };
                                                                 set({ sections });
                                                             }}
                                                         >
@@ -622,7 +420,6 @@ export default function NodeSettingsPanel({
                                                     </div>
                                                 ))}
                                             </div>
-
                                             {listRowCount < 10 && (
                                                 <button
                                                     type="button"
@@ -630,11 +427,7 @@ export default function NodeSettingsPanel({
                                                     onClick={() => {
                                                         const sections = [...(config.sections ?? [])];
                                                         const rows = [...(sections[si].rows ?? [])];
-                                                        rows.push({
-                                                            id: `row_${Date.now().toString(36)}`,
-                                                            title: `${t('automations.option')} ${rows.length + 1}`,
-                                                            description: '',
-                                                        });
+                                                        rows.push({ id: `row_${Date.now().toString(36)}`, title: `${t('automations.option')} ${rows.length + 1}`, description: '' });
                                                         sections[si] = { ...sections[si], rows };
                                                         set({ sections });
                                                     }}
@@ -646,29 +439,12 @@ export default function NodeSettingsPanel({
                                     </div>
                                 ))}
                             </div>
-
                             {(config.sections ?? []).length < 10 && listRowCount < 10 && (
                                 <Button
                                     variant="secondary"
                                     size="sm"
                                     className="w-full"
-                                    onClick={() =>
-                                        set({
-                                            sections: [
-                                                ...(config.sections ?? []),
-                                                {
-                                                    title: `${t('automations.section')} ${(config.sections ?? []).length + 1}`,
-                                                    rows: [
-                                                        {
-                                                            id: `row_${Date.now().toString(36)}`,
-                                                            title: `${t('automations.option')} 1`,
-                                                            description: '',
-                                                        },
-                                                    ],
-                                                },
-                                            ],
-                                        })
-                                    }
+                                    onClick={() => set({ sections: [...(config.sections ?? []), { title: `${t('automations.section')} ${(config.sections ?? []).length + 1}`, rows: [{ id: `row_${Date.now().toString(36)}`, title: `${t('automations.option')} 1`, description: '' }] }] })}
                                 >
                                     + {t('automations.add_section')}
                                 </Button>
@@ -686,31 +462,17 @@ export default function NodeSettingsPanel({
                 {(type === 'set_custom_field' || type === 'clear_custom_field') && (
                     <>
                         <div>
-                            <Label>Custom field</Label>
+                            <Label>{t('automations.custom_field')}</Label>
                             <Select value={config.field_key ?? ''} onChange={(e) => set({ field_key: e.target.value })}>
                                 <option value="">—</option>
-                                {fields.data?.map((f) => (
-                                    <option key={f.key} value={f.key}>
-                                        {f.name}
-                                    </option>
-                                ))}
+                                {fields.data?.map((f) => <option key={f.key} value={f.key}>{f.name}</option>)}
                             </Select>
                         </div>
                         {type === 'set_custom_field' && (
                             <div>
-                                <Label>Value (supports variables)</Label>
-                                <Input
-                                    ref={valueFieldRef}
-                                    value={config.value ?? ''}
-                                    onChange={(e) => set({ value: e.target.value })}
-                                />
-                                <VariableChips
-                                    value={config.value ?? ''}
-                                    onChange={(next) => set({ value: next })}
-                                    inputRef={valueFieldRef}
-                                    customFields={customFieldOptions}
-                                    flowVariables={flowVariables}
-                                />
+                                <Label>{t('automations.value_variables')}</Label>
+                                <Input ref={valueFieldRef} value={config.value ?? ''} onChange={(e) => set({ value: e.target.value })} />
+                                <VariableChips value={config.value ?? ''} onChange={(next) => set({ value: next })} inputRef={valueFieldRef} customFields={customFieldOptions} flowVariables={flowVariables} />
                             </div>
                         )}
                     </>
@@ -718,28 +480,21 @@ export default function NodeSettingsPanel({
 
                 {(type === 'add_tag' || type === 'remove_tag') && (
                     <div>
-                        <Label>Tag</Label>
+                        <Label>{t('inbox.tag')}</Label>
                         <Select
                             value={config.tag_id ?? ''}
                             onChange={(e) => {
-                                const tag = tags.data?.find((t) => String(t.id) === e.target.value);
+                                const tag = tags.data?.find((tagItem) => String(tagItem.id) === e.target.value);
                                 set({ tag_id: tag?.id ?? null, tag_name: tag?.name ?? '' });
                             }}
                         >
                             <option value="">—</option>
-                            {tags.data?.map((t) => (
-                                <option key={t.id} value={t.id}>
-                                    {t.name}
-                                </option>
-                            ))}
+                            {tags.data?.map((tagItem) => <option key={tagItem.id} value={tagItem.id}>{tagItem.name}</option>)}
                         </Select>
                         {type === 'add_tag' && (
                             <>
-                                <Label className="mt-2">Or create by name</Label>
-                                <Input
-                                    value={config.tag_name ?? ''}
-                                    onChange={(e) => set({ tag_name: e.target.value, tag_id: null })}
-                                />
+                                <Label className="mt-2">{t('automations.or_create_tag')}</Label>
+                                <Input value={config.tag_name ?? ''} onChange={(e) => set({ tag_name: e.target.value, tag_id: null })} />
                             </>
                         )}
                     </div>
@@ -749,32 +504,19 @@ export default function NodeSettingsPanel({
                     <>
                         <div className="flex gap-1.5">
                             <Select value={config.method ?? 'POST'} onChange={(e) => set({ method: e.target.value })} className="!w-24">
-                                {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => (
-                                    <option key={m}>{m}</option>
-                                ))}
+                                {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => <option key={m}>{m}</option>)}
                             </Select>
                             <Input value={config.url ?? ''} onChange={(e) => set({ url: e.target.value })} placeholder="https://api.example.com/…" />
                         </div>
                         {type === 'http_request' && (
                             <>
                                 <div>
-                                    <Label>Body (JSON, supports variables)</Label>
-                                    <Textarea
-                                        ref={bodyFieldRef}
-                                        rows={4}
-                                        value={config.body ?? ''}
-                                        onChange={(e) => set({ body: e.target.value })}
-                                    />
-                                    <VariableChips
-                                        value={config.body ?? ''}
-                                        onChange={(next) => set({ body: next })}
-                                        inputRef={bodyFieldRef}
-                                        customFields={customFieldOptions}
-                                        flowVariables={flowVariables}
-                                    />
+                                    <Label>{t('automations.http_body')}</Label>
+                                    <Textarea ref={bodyFieldRef} rows={4} value={config.body ?? ''} onChange={(e) => set({ body: e.target.value })} />
+                                    <VariableChips value={config.body ?? ''} onChange={(next) => set({ body: next })} inputRef={bodyFieldRef} customFields={customFieldOptions} flowVariables={flowVariables} />
                                 </div>
                                 <div>
-                                    <Label>Response mappings (path → variable)</Label>
+                                    <Label>{t('automations.response_mappings')}</Label>
                                     <div className="space-y-1.5">
                                         {(config.response_mappings ?? []).map((mapping: any, i: number) => (
                                             <div key={i} className="flex gap-1.5">
@@ -798,12 +540,8 @@ export default function NodeSettingsPanel({
                                                 />
                                             </div>
                                         ))}
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            onClick={() => set({ response_mappings: [...(config.response_mappings ?? []), { path: '', variable: '' }] })}
-                                        >
-                                            + Add mapping
+                                        <Button variant="secondary" size="sm" onClick={() => set({ response_mappings: [...(config.response_mappings ?? []), { path: '', variable: '' }] })}>
+                                            + {t('automations.add_mapping')}
                                         </Button>
                                     </div>
                                 </div>
@@ -816,43 +554,29 @@ export default function NodeSettingsPanel({
                 {type === 'assign_agent' && (
                     <>
                         <div>
-                            <Label>Specific agent (optional)</Label>
-                            <Select
-                                value={config.user_id ?? ''}
-                                onChange={(e) => set({ user_id: e.target.value ? Number(e.target.value) : null })}
-                            >
+                            <Label>{t('automations.specific_agent')}</Label>
+                            <Select value={config.user_id ?? ''} onChange={(e) => set({ user_id: e.target.value ? Number(e.target.value) : null })}>
                                 <option value="">—</option>
-                                {agents.data?.map((a) => (
-                                    <option key={a.user_id} value={a.user_id}>
-                                        {a.user?.name}
-                                    </option>
-                                ))}
+                                {agents.data?.map((a) => <option key={a.user_id} value={a.user_id}>{a.user?.name}</option>)}
                             </Select>
                         </div>
                         <div>
-                            <Label>Team</Label>
-                            <Select
-                                value={config.team_id ?? ''}
-                                onChange={(e) => set({ team_id: e.target.value ? Number(e.target.value) : null })}
-                            >
+                            <Label>{t('common.team')}</Label>
+                            <Select value={config.team_id ?? ''} onChange={(e) => set({ team_id: e.target.value ? Number(e.target.value) : null })}>
                                 <option value="">—</option>
-                                {teams.data?.map((t) => (
-                                    <option key={t.id} value={t.id}>
-                                        {t.name}
-                                    </option>
-                                ))}
+                                {teams.data?.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
                             </Select>
                         </div>
                         <div>
-                            <Label>Strategy</Label>
+                            <Label>{t('automations.assignment_strategy')}</Label>
                             <Select value={config.strategy ?? 'round_robin'} onChange={(e) => set({ strategy: e.target.value })}>
-                                <option value="round_robin">Round robin</option>
-                                <option value="least_active">Least active</option>
+                                <option value="round_robin">{t('automations.strategy_round_robin')}</option>
+                                <option value="least_active">{t('automations.strategy_least_active')}</option>
                             </Select>
                         </div>
                         <label className="flex items-center gap-2 text-xs text-slate-600">
                             <input type="checkbox" checked={!!config.pause_bot} onChange={(e) => set({ pause_bot: e.target.checked })} />
-                            Pause bot after assignment
+                            {t('automations.pause_after_assignment')}
                         </label>
                     </>
                 )}
@@ -860,24 +584,15 @@ export default function NodeSettingsPanel({
                 {type === 'start_automation' && (
                     <>
                         <div>
-                            <Label>Automation</Label>
-                            <Select
-                                value={config.automation_id ?? ''}
-                                onChange={(e) => set({ automation_id: e.target.value ? Number(e.target.value) : null })}
-                            >
+                            <Label>{t('automations.automation')}</Label>
+                            <Select value={config.automation_id ?? ''} onChange={(e) => set({ automation_id: e.target.value ? Number(e.target.value) : null })}>
                                 <option value="">—</option>
-                                {automations.data
-                                    ?.filter((a) => a.status === 'published')
-                                    .map((a) => (
-                                        <option key={a.id} value={a.id}>
-                                            {a.name}
-                                        </option>
-                                    ))}
+                                {automations.data?.filter((automation) => automation.status === 'published').map((automation) => <option key={automation.id} value={automation.id}>{automation.name}</option>)}
                             </Select>
                         </div>
                         <label className="flex items-center gap-2 text-xs text-slate-600">
                             <input type="checkbox" checked={!!config.stop_parent} onChange={(e) => set({ stop_parent: e.target.checked })} />
-                            Stop this flow after starting
+                            {t('automations.stop_parent')}
                         </label>
                     </>
                 )}
@@ -896,17 +611,9 @@ export default function NodeSettingsPanel({
 
                 {type === 'delay' && (
                     <div className="flex gap-1.5">
-                        <Input
-                            type="number"
-                            min={1}
-                            value={config.amount ?? 5}
-                            onChange={(e) => set({ amount: Number(e.target.value) })}
-                            className="!w-24"
-                        />
+                        <Input type="number" min={1} value={config.amount ?? 5} onChange={(e) => set({ amount: Number(e.target.value) })} className="!w-24" />
                         <Select value={config.unit ?? 'minutes'} onChange={(e) => set({ unit: e.target.value })}>
-                            {['seconds', 'minutes', 'hours', 'days'].map((u) => (
-                                <option key={u}>{u}</option>
-                            ))}
+                            {['seconds', 'minutes', 'hours', 'days'].map((unit) => <option key={unit} value={unit}>{t(`automations.unit_${unit}`)}</option>)}
                         </Select>
                     </div>
                 )}
@@ -914,34 +621,20 @@ export default function NodeSettingsPanel({
                 {type === 'wait_until' && (
                     <>
                         <div>
-                            <Label>Mode</Label>
+                            <Label>{t('automations.wait_mode')}</Label>
                             <Select value={config.mode ?? 'tomorrow'} onChange={(e) => set({ mode: e.target.value })}>
-                                <option value="tomorrow">Tomorrow at time</option>
-                                <option value="datetime">Specific date/time</option>
-                                <option value="custom_field">Custom field date</option>
-                                <option value="working_hours">Next working hours</option>
+                                <option value="tomorrow">{t('automations.wait_tomorrow')}</option>
+                                <option value="datetime">{t('automations.wait_datetime')}</option>
+                                <option value="custom_field">{t('automations.wait_custom_field')}</option>
+                                <option value="working_hours">{t('automations.wait_working_hours')}</option>
                             </Select>
                         </div>
-                        {config.mode === 'tomorrow' && (
-                            <Input type="time" value={config.time ?? '09:00'} onChange={(e) => set({ time: e.target.value })} />
-                        )}
-                        {config.mode === 'datetime' && (
-                            <Input
-                                type="datetime-local"
-                                value={config.datetime ?? ''}
-                                onChange={(e) => set({ datetime: e.target.value })}
-                            />
-                        )}
+                        {config.mode === 'tomorrow' && <Input type="time" value={config.time ?? '09:00'} onChange={(e) => set({ time: e.target.value })} />}
+                        {config.mode === 'datetime' && <Input type="datetime-local" value={config.datetime ?? ''} onChange={(e) => set({ datetime: e.target.value })} />}
                         {config.mode === 'custom_field' && (
                             <Select value={config.field_key ?? ''} onChange={(e) => set({ field_key: e.target.value })}>
                                 <option value="">—</option>
-                                {fields.data
-                                    ?.filter((f) => ['date', 'datetime'].includes(f.type))
-                                    .map((f) => (
-                                        <option key={f.key} value={f.key}>
-                                            {f.name}
-                                        </option>
-                                    ))}
+                                {fields.data?.filter((f) => ['date', 'datetime'].includes(f.type)).map((f) => <option key={f.key} value={f.key}>{f.name}</option>)}
                             </Select>
                         )}
                     </>
@@ -971,20 +664,13 @@ export default function NodeSettingsPanel({
 
                 {type === 'go_to_node' && (
                     <div>
-                        <Label>Target node</Label>
+                        <Label>{t('automations.target_node')}</Label>
                         <Select value={config.target_node_id ?? ''} onChange={(e) => set({ target_node_id: e.target.value })}>
                             <option value="">—</option>
-                            {allNodes
-                                .filter((n) => n.id !== node.id)
-                                .map((n) => (
-                                    <option key={n.id} value={n.id}>
-                                        {t(nodeLabelKey(n.data.nodeType as string))} ({n.id.slice(-4)})
-                                    </option>
-                                ))}
+                            {allNodes.filter((n) => n.id !== node.id).map((n) => <option key={n.id} value={n.id}>{t(nodeLabelKey(n.data.nodeType as string))} ({n.id.slice(-4)})</option>)}
                         </Select>
                     </div>
                 )}
-
             </div>
         </div>
     );
