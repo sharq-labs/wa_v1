@@ -4,13 +4,15 @@ import { en } from '@/locales/en';
 import { ar } from '@/locales/ar';
 import { enExtra } from '@/locales/en-extra';
 import { arExtra } from '@/locales/ar-extra';
+import { enAutomationExtra } from '@/locales/en-automation-extra';
+import { arAutomationExtra } from '@/locales/ar-automation-extra';
 
 type Locale = 'en' | 'ar';
 type Dict = Record<string, string>;
 
 export const dictionaries: Record<Locale, Dict> = {
-    en: { ...en, ...enExtra },
-    ar: { ...ar, ...arExtra },
+    en: { ...en, ...enExtra, ...enAutomationExtra },
+    ar: { ...ar, ...arExtra, ...arAutomationExtra },
 };
 
 interface I18nContextValue {
