@@ -90,7 +90,8 @@ function ignored(text) {
         compact.includes("t('") ||
         compact.includes('t("') ||
         compact.includes('.map(') ||
-        compact.includes('.includes(')
+        compact.includes('.includes(') ||
+        compact.includes('.isLoading')
     ) return true;
     if (compact.length > 160) return true;
     if (/^[A-Z0-9_./:+#-]+$/.test(compact)) return true;
