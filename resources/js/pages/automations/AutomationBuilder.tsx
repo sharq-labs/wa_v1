@@ -613,19 +613,6 @@ function BuilderInner() {
         duplicateNode(selectedNodeId);
     }, [selectedNodeId, duplicateNode]);
 
-    const nodeActionsRef = useRef({
-        updateNodeConfig,
-        deleteNode,
-        duplicateNode,
-        openSettings: (nodeId: string) => setSelectedNodeId(nodeId),
-    });
-    nodeActionsRef.current = {
-        updateNodeConfig,
-        deleteNode,
-        duplicateNode,
-        openSettings: (nodeId: string) => setSelectedNodeId(nodeId),
-    };
-
     /** Inject per-node actions without storing functions in persisted draft state. */
     const displayNodes = useMemo(
         () =>
@@ -633,13 +620,13 @@ function BuilderInner() {
                 ...node,
                 data: {
                     ...node.data,
-                    onConfigChange: (config: Record<string, any>) => nodeActionsRef.current.updateNodeConfig(node.id, config),
-                    onDelete: () => nodeActionsRef.current.deleteNode(node.id),
-                    onDuplicate: () => nodeActionsRef.current.duplicateNode(node.id),
-                    onOpenSettings: () => nodeActionsRef.current.openSettings(node.id),
+                    onConfigChange: (config: Record<string, any>) => updateNodeConfig(node.id, config),
+                    onDelete: () => deleteNode(node.id),
+                    onDuplicate: () => duplicateNode(node.id),
+                    onOpenSettings: () => setSelectedNodeId(node.id),
                 },
             })),
-        [nodes],
+        [nodes, updateNodeConfig, deleteNode, duplicateNode],
     );
 
     const displayEdges = useMemo(
@@ -947,15 +934,17 @@ function BuilderInner() {
                 )}
             </div>
 
-            <SimulatorDrawer
-                open={simulatorOpen}
-                onClose={() => {
-                    setSimulatorOpen(false);
-                    highlightNode(null);
-                }}
-                automationId={id}
-                onNodeHighlight={highlightNode}
-            />
+            {simulatorOpen && (
+                <SimulatorDrawer
+                    open
+                    onClose={() => {
+                        setSimulatorOpen(false);
+                        highlightNode(null);
+                    }}
+                    automationId={id}
+                    onNodeHighlight={highlightNode}
+                />
+            )}
         </div>
     );
 }

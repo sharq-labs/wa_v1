@@ -6,7 +6,7 @@ import { Select } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
 import { NODE_META, nodeHandles } from './nodeCatalog';
 import { nodeDescKey, nodeLabelKey } from './nodeI18n';
-import { nodeIcon } from './nodeIcons';
+import { NodeTypeIcon } from './nodeIcons';
 
 export type FlowNodeActions = {
     onConfigChange?: (config: Record<string, any>) => void;
@@ -90,7 +90,6 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
     const highlighted = Boolean(data.highlighted);
     const color = meta?.color ?? '#94a3b8';
     const actions = data as FlowNodeActions;
-    const Icon = nodeIcon(type);
     const title = t(nodeLabelKey(type));
     const fallbackDesc = t(nodeDescKey(type));
 
@@ -733,7 +732,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
                     className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm"
                     style={{ color }}
                 >
-                    <Icon size={13} strokeWidth={2.5} />
+                    <NodeTypeIcon type={type} size={13} strokeWidth={2.5} />
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold">
                     {title || meta?.label || type}

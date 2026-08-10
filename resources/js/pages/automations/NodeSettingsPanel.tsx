@@ -8,7 +8,7 @@ import { useI18n } from '@/lib/i18n';
 import { useWorkspaceId } from '@/stores/authStore';
 import { NODE_META } from './nodeCatalog';
 import { nodeDescKey, nodeLabelKey } from './nodeI18n';
-import { nodeIcon, solidIconTileStyle } from './nodeIcons';
+import { NodeTypeIcon, solidIconTileStyle } from './nodeIcons';
 import ConditionSettings from './ConditionSettings';
 import VariableChips from './VariableChips';
 
@@ -60,7 +60,6 @@ export default function NodeSettingsPanel({
     const type = node.data.nodeType as string;
     const config = (node.data.config ?? {}) as Record<string, any>;
     const meta = NODE_META[type];
-    const Icon = nodeIcon(type);
     const textFieldRef = useRef<HTMLTextAreaElement>(null);
     const valueFieldRef = useRef<HTMLInputElement>(null);
     const bodyFieldRef = useRef<HTMLTextAreaElement>(null);
@@ -146,7 +145,7 @@ export default function NodeSettingsPanel({
                             className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] shadow-sm"
                             style={solidIconTileStyle(meta?.color ?? '#94a3b8')}
                         >
-                            <Icon size={16} strokeWidth={2.4} />
+                            <NodeTypeIcon type={type} size={16} strokeWidth={2.4} />
                         </span>
                         <div className="min-w-0">
                             <p className="truncate text-[15px] font-semibold text-slate-900">

@@ -142,18 +142,9 @@ export default function SimulatorDrawer({
     });
 
     useEffect(() => {
-        if (!open) {
-            playToken.current += 1;
-            setState(null);
-            setDisplayed([]);
-            setTyping(false);
-            setBusy(false);
-            revealedCount.current = 0;
-            setText('');
-            setError(null);
-            return;
-        }
+        if (!open) return;
         start.mutate();
+        // The parent unmounts this drawer when it closes, so local simulation state resets naturally.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 

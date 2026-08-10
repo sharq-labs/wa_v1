@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react';
+import type { LucideIcon, LucideProps } from 'lucide-react';
 import {
     Bot,
     CircleStop,
@@ -82,6 +82,12 @@ export const CATEGORY_ICONS: Record<NodeMeta['category'], LucideIcon> = {
 
 export function nodeIcon(type: string): LucideIcon {
     return NODE_ICONS[type] ?? GitBranch;
+}
+
+export function NodeTypeIcon({ type, ...props }: { type: string } & LucideProps) {
+    const Icon = NODE_ICONS[type] ?? GitBranch;
+
+    return <Icon {...props} />;
 }
 
 /** Soft tint (settings panel, subtle surfaces). */

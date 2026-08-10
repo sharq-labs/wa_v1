@@ -4,6 +4,7 @@ import {
     Children,
     forwardRef,
     isValidElement,
+    useCallback,
     useEffect,
     useId,
     useLayoutEffect,
@@ -147,7 +148,7 @@ export function Select({
         [options],
     );
 
-    const updateMenuPosition = () => {
+    const updateMenuPosition = useCallback(() => {
         const trigger = buttonRef.current;
         if (!trigger) return;
 
@@ -170,25 +171,22 @@ export function Select({
             maxHeight: Math.min(280, openUp ? rect.top - gap - 8 : spaceBelow - 8),
             zIndex: 80,
         });
-    };
+    }, [options.length]);
 
     useLayoutEffect(() => {
         if (!open) return;
         updateMenuPosition();
-        const onReposition = () => updateMenuPosition();
+        const onReposition = updateMenuPosition;
         window.addEventListener('resize', onReposition);
         window.addEventListener('scroll', onReposition, true);
         return () => {
             window.removeEventListener('resize', onReposition);
             window.removeEventListener('scroll', onReposition, true);
         };
-    }, [open, options.length]);
+    }, [open, updateMenuPosition]);
 
     useEffect(() => {
         if (!open) return;
-
-        const selectedIdx = options.findIndex((o) => o.value === selectedValue);
-        setActiveIndex(selectedIdx >= 0 ? selectedIdx : (enabledIndexes[0] ?? -1));
 
         const onPointerDown = (event: MouseEvent) => {
             const target = event.target as Node;
@@ -209,13 +207,19 @@ export function Select({
             document.removeEventListener('mousedown', onPointerDown);
             document.removeEventListener('keydown', onKeyDown);
         };
-    }, [open, options, selectedValue, enabledIndexes]);
+    }, [open]);
 
     useEffect(() => {
         if (!open || activeIndex < 0) return;
         const el = menuRef.current?.querySelector<HTMLElement>(`[data-option-index="${activeIndex}"]`);
         el?.scrollIntoView({ block: 'nearest' });
     }, [activeIndex, open]);
+
+    const openMenu = () => {
+        const selectedIdx = options.findIndex((o) => o.value === selectedValue);
+        setActiveIndex(selectedIdx >= 0 ? selectedIdx : (enabledIndexes[0] ?? -1));
+        setOpen(true);
+    };
 
     const commit = (next: string) => {
         if (!isControlled) setInternalValue(next);
@@ -256,12 +260,16 @@ export function Select({
                 aria-controls={open ? listboxId : undefined}
                 aria-label={ariaLabel}
                 aria-required={required || undefined}
-                onClick={() => !disabled && setOpen((v) => !v)}
+                onClick={() => {
+                    if (disabled) return;
+                    if (open) setOpen(false);
+                    else openMenu();
+                }}
                 onKeyDown={(event) => {
                     if (disabled) return;
                     if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        if (!open) setOpen(true);
+                        if (!open) openMenu();
                         else if (event.key === 'ArrowDown') moveActive(1);
                         else if (event.key === 'Enter' || event.key === ' ') {
                             const opt = options[activeIndex];
@@ -269,7 +277,7 @@ export function Select({
                         }
                     } else if (event.key === 'ArrowUp') {
                         event.preventDefault();
-                        if (!open) setOpen(true);
+                        if (!open) openMenu();
                         else moveActive(-1);
                     }
                 }}

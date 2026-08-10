@@ -21,6 +21,17 @@ export interface InboxFilters {
     search: string;
 }
 
+function useDebouncedValue<T>(value: T, delay: number): T {
+    const [debounced, setDebounced] = useState(value);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => setDebounced(value), delay);
+        return () => window.clearTimeout(timer);
+    }, [value, delay]);
+
+    return debounced;
+}
+
 function filtersFromParams(params: URLSearchParams): InboxFilters {
     const scope = params.get('scope');
     return {
@@ -38,25 +49,38 @@ export default function InboxPage() {
     const workspaceId = useWorkspaceId();
     const { conversationId } = useParams();
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const queryClient = useQueryClient();
     const { t } = useI18n();
 
-    const [filters, setFilters] = useState<InboxFilters>(() => filtersFromParams(searchParams));
-    const [contactOpen, setContactOpen] = useState(false);
+    const filters = filtersFromParams(searchParams);
+    const debouncedSearch = useDebouncedValue(filters.search, 300);
+    const [contactConversationId, setContactConversationId] = useState<number | null>(null);
 
-    useEffect(() => {
-        setFilters(filtersFromParams(searchParams));
-    }, [searchParams]);
+    const setFilters = (next: InboxFilters) => {
+        const params = new URLSearchParams(searchParams);
+        const values: Record<string, string> = {
+            scope: next.scope === 'all' ? '' : next.scope,
+            status: next.status,
+            unread: next.unread ? '1' : '',
+            tag_id: next.tag_id,
+            assigned_team_id: next.assigned_team_id,
+            whatsapp_account_id: next.whatsapp_account_id,
+            search: next.search,
+        };
+
+        Object.entries(values).forEach(([key, value]) => {
+            if (value) params.set(key, value);
+            else params.delete(key);
+        });
+        setSearchParams(params, { replace: true });
+    };
 
     const activeId = conversationId ? Number(conversationId) : null;
-
-    useEffect(() => {
-        setContactOpen(false);
-    }, [activeId]);
+    const contactOpen = activeId !== null && contactConversationId === activeId;
 
     const conversationsQuery = useQuery({
-        queryKey: ['conversations', workspaceId, filters],
+        queryKey: ['conversations', workspaceId, { ...filters, search: debouncedSearch }],
         queryFn: async () => {
             const params: Record<string, string> = {};
             if (filters.scope !== 'all') params.scope = filters.scope;
@@ -65,7 +89,7 @@ export default function InboxPage() {
             if (filters.tag_id) params.tag_id = filters.tag_id;
             if (filters.assigned_team_id) params.assigned_team_id = filters.assigned_team_id;
             if (filters.whatsapp_account_id) params.whatsapp_account_id = filters.whatsapp_account_id;
-            if (filters.search) params.search = filters.search;
+            if (debouncedSearch) params.search = debouncedSearch;
             return (await inboxApi.conversations(workspaceId, params)).data;
         },
         refetchInterval: 30_000,
@@ -121,12 +145,12 @@ export default function InboxPage() {
                     <ChatPanel
                         key={activeId}
                         conversationId={activeId}
-                        onOpenContact={() => setContactOpen(true)}
+                        onOpenContact={() => setContactConversationId(activeId)}
                     />
                     <ContactPanel
                         conversationId={activeId}
                         drawerOpen={contactOpen}
-                        onDrawerClose={() => setContactOpen(false)}
+                        onDrawerClose={() => setContactConversationId(null)}
                     />
                 </>
             ) : (
