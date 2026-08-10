@@ -1,5 +1,6 @@
 export const enFinalExtra: Record<string, string> = {
     'common.team': 'Team',
+    'common.delete': 'Delete',
 
     // Final automation canvas labels
     'automations.url': 'URL',
