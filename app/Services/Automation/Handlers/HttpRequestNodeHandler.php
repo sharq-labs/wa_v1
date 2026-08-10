@@ -108,7 +108,7 @@ class HttpRequestNodeHandler implements NodeHandlerInterface
 
             $response = match ($method) {
                 'GET' => $pending->get($url, $query),
-                'DELETE' => $pending->delete($url.$this->queryString($query), is_array($body) ? $body : []),
+                'DELETE' => $pending->withQueryParameters($query)->delete($url, is_array($body) ? $body : []),
                 default => $pending->withQueryParameters($query)->send($method, $url, [
                     is_array($body) ? 'json' : 'body' => $body ?? [],
                 ]),
@@ -186,10 +186,5 @@ class HttpRequestNodeHandler implements NodeHandlerInterface
         // Pin one already-validated address for the actual request. CURLOPT_RESOLVE
         // prevents a second DNS lookup from being redirected to a private address.
         return [null, $ips[0]];
-    }
-
-    protected function queryString(array $query): string
-    {
-        return $query === [] ? '' : '?'.http_build_query($query);
     }
 }
