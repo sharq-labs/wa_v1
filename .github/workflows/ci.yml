@@ -87,7 +87,21 @@ jobs:
         run: npm run i18n:audit
 
       - name: TypeScript
-        run: npm run typecheck
+        id: typescript
+        shell: bash
+        run: |
+          set +e
+          npm run typecheck 2>&1 | tee typescript-errors.txt
+          code=${PIPESTATUS[0]}
+          exit "$code"
+
+      - name: Upload TypeScript errors
+        if: failure() && steps.typescript.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: typescript-errors
+          path: typescript-errors.txt
+          retention-days: 1
 
       - name: Frontend tests
         run: npm test
