@@ -7,8 +7,6 @@ import { useI18n } from '@/lib/i18n';
 import { useWorkspaceId } from '@/stores/authStore';
 import type { WhatsAppAccount } from '@/types';
 
-const STEPS = ['Basics', 'Header', 'Body', 'Footer', 'Buttons', 'Preview & submit'];
-
 interface TemplateForm {
     whatsapp_account_id: string;
     name: string;
@@ -35,6 +33,14 @@ export default function TemplateWizard({
 }) {
     const workspaceId = useWorkspaceId();
     const { t } = useI18n();
+    const steps = [
+        t('templates.step_basics'),
+        t('templates.step_header'),
+        t('templates.step_body'),
+        t('templates.step_footer'),
+        t('templates.step_buttons'),
+        t('templates.step_preview_submit'),
+    ];
     const [step, setStep] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [form, setForm] = useState<TemplateForm>({
@@ -74,15 +80,22 @@ export default function TemplateWizard({
             setStep(0);
             setError(null);
         },
-        onError: (e) => setError(e instanceof ApiError ? e.message : 'Failed'),
+        onError: (e) => setError(e instanceof ApiError ? e.message : t('templates.create_failed')),
     });
 
     const previewBody = form.body.replace(/\{\{(\d+)\}\}/g, (_, i) => form.variables[i] || `{{${i}}}`);
+    const headerTypeLabels: Record<string, string> = {
+        none: t('templates.header_none'),
+        text: t('templates.header_text'),
+        image: t('templates.header_image'),
+        video: t('templates.header_video'),
+        document: t('templates.header_document'),
+    };
 
     return (
-        <Modal open={open} onClose={onClose} title={`${t('templates.new')} — ${STEPS[step]}`} wide>
+        <Modal open={open} onClose={onClose} title={`${t('templates.new')} — ${steps[step]}`} wide>
             <div className="mb-4 flex gap-1">
-                {STEPS.map((label, i) => (
+                {steps.map((label, i) => (
                     <div key={label} className={`h-1 flex-1 rounded-full ${i <= step ? 'bg-brand-600' : 'bg-slate-200'}`} />
                 ))}
             </div>
@@ -91,7 +104,7 @@ export default function TemplateWizard({
                 {step === 0 && (
                     <>
                         <div>
-                            <Label>WhatsApp number</Label>
+                            <Label>{t('templates.whatsapp_number')}</Label>
                             <Select
                                 value={form.whatsapp_account_id}
                                 onChange={(e) => set({ whatsapp_account_id: e.target.value })}
@@ -105,7 +118,7 @@ export default function TemplateWizard({
                             </Select>
                         </div>
                         <div>
-                            <Label>Template name (lowercase, underscores)</Label>
+                            <Label>{t('templates.template_name_label')}</Label>
                             <Input
                                 value={form.name}
                                 onChange={(e) => set({ name: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_') })}
@@ -116,17 +129,17 @@ export default function TemplateWizard({
                             <div>
                                 <Label>{t('templates.category')}</Label>
                                 <Select value={form.category} onChange={(e) => set({ category: e.target.value })}>
-                                    <option value="MARKETING">Marketing</option>
-                                    <option value="UTILITY">Utility</option>
-                                    <option value="AUTHENTICATION">Authentication</option>
+                                    <option value="MARKETING">{t('templates.category_marketing')}</option>
+                                    <option value="UTILITY">{t('templates.category_utility')}</option>
+                                    <option value="AUTHENTICATION">{t('templates.category_authentication')}</option>
                                 </Select>
                             </div>
                             <div>
                                 <Label>{t('templates.language')}</Label>
                                 <Select value={form.language} onChange={(e) => set({ language: e.target.value })}>
-                                    <option value="en">English</option>
-                                    <option value="ar">العربية</option>
-                                    <option value="en_US">English (US)</option>
+                                    <option value="en">{t('templates.language_english')}</option>
+                                    <option value="ar">{t('templates.language_arabic')}</option>
+                                    <option value="en_US">{t('templates.language_english_us')}</option>
                                 </Select>
                             </div>
                         </div>
@@ -136,24 +149,24 @@ export default function TemplateWizard({
                 {step === 1 && (
                     <>
                         <div>
-                            <Label>Header type</Label>
+                            <Label>{t('templates.header_type')}</Label>
                             <Select value={form.header_type} onChange={(e) => set({ header_type: e.target.value })}>
                                 {['none', 'text', 'image', 'video', 'document'].map((type) => (
                                     <option key={type} value={type}>
-                                        {type}
+                                        {headerTypeLabels[type]}
                                     </option>
                                 ))}
                             </Select>
                         </div>
                         {form.header_type === 'text' && (
                             <div>
-                                <Label>Header text</Label>
+                                <Label>{t('templates.header_text_label')}</Label>
                                 <Input value={form.header_content} onChange={(e) => set({ header_content: e.target.value })} />
                             </div>
                         )}
                         {['image', 'video', 'document'].includes(form.header_type) && (
                             <div>
-                                <Label>Sample media URL</Label>
+                                <Label>{t('templates.sample_media_url')}</Label>
                                 <Input value={form.header_content} onChange={(e) => set({ header_content: e.target.value })} placeholder="https://…" />
                             </div>
                         )}
@@ -163,13 +176,17 @@ export default function TemplateWizard({
                 {step === 2 && (
                     <>
                         <div>
-                            <Label>{t('templates.body')} — use {'{{1}}, {{2}}'} for variables</Label>
-                            <Textarea rows={5} value={form.body} onChange={(e) => set({ body: e.target.value })}
-                                placeholder="Hello {{1}}, we are following up regarding {{2}}." />
+                            <Label>{t('templates.body')} — {t('templates.body_variables_hint')}</Label>
+                            <Textarea
+                                rows={5}
+                                value={form.body}
+                                onChange={(e) => set({ body: e.target.value })}
+                                placeholder={t('templates.body_placeholder')}
+                            />
                         </div>
                         {variableIndexes.length > 0 && (
                             <div>
-                                <Label>Sample values (required by Meta review)</Label>
+                                <Label>{t('templates.sample_values')}</Label>
                                 {variableIndexes.map((index) => (
                                     <div key={index} className="mb-1.5 flex items-center gap-2">
                                         <span className="w-12 rounded bg-slate-100 px-1.5 py-1 text-center font-mono text-xs">
@@ -188,7 +205,7 @@ export default function TemplateWizard({
 
                 {step === 3 && (
                     <div>
-                        <Label>Footer (optional, max 60 chars)</Label>
+                        <Label>{t('templates.footer_optional')}</Label>
                         <Input maxLength={60} value={form.footer} onChange={(e) => set({ footer: e.target.value })} />
                     </div>
                 )}
@@ -206,13 +223,13 @@ export default function TemplateWizard({
                                     }}
                                     className="!w-32"
                                 >
-                                    <option value="quick_reply">Quick reply</option>
-                                    <option value="url">URL</option>
-                                    <option value="phone">Phone</option>
+                                    <option value="quick_reply">{t('templates.button_quick_reply')}</option>
+                                    <option value="url">{t('templates.button_url')}</option>
+                                    <option value="phone">{t('templates.button_phone')}</option>
                                 </Select>
                                 <Input
                                     value={button.text}
-                                    placeholder="Button text"
+                                    placeholder={t('templates.button_text')}
                                     onChange={(e) => {
                                         const buttons = [...form.buttons];
                                         buttons[i] = { ...buttons[i], text: e.target.value };
@@ -252,7 +269,7 @@ export default function TemplateWizard({
                                 size="sm"
                                 onClick={() => set({ buttons: [...form.buttons, { type: 'quick_reply', text: '' }] })}
                             >
-                                + Add button
+                                + {t('templates.add_button')}
                             </Button>
                         )}
                     </div>
@@ -266,7 +283,7 @@ export default function TemplateWizard({
                             )}
                             {['image', 'video', 'document'].includes(form.header_type) && (
                                 <div className="mb-2 rounded bg-slate-100 py-6 text-center text-xs text-slate-400">
-                                    [{form.header_type} header]
+                                    [{t('templates.media_header_preview', { type: headerTypeLabels[form.header_type] ?? form.header_type })}]
                                 </div>
                             )}
                             <p className="whitespace-pre-wrap">{previewBody}</p>
@@ -291,7 +308,7 @@ export default function TemplateWizard({
                 <Button variant="secondary" onClick={() => (step === 0 ? onClose() : setStep(step - 1))}>
                     {step === 0 ? t('common.cancel') : t('common.back')}
                 </Button>
-                {step < STEPS.length - 1 ? (
+                {step < steps.length - 1 ? (
                     <Button
                         onClick={() => setStep(step + 1)}
                         disabled={(step === 0 && (!form.name || !form.whatsapp_account_id)) || (step === 2 && !form.body)}
@@ -300,7 +317,7 @@ export default function TemplateWizard({
                     </Button>
                 ) : (
                     <Button onClick={() => submit.mutate()} disabled={submit.isPending}>
-                        Submit for review
+                        {t('templates.submit_review')}
                     </Button>
                 )}
             </div>
