@@ -4,16 +4,18 @@ import path from 'node:path';
 const root = process.cwd();
 const jsRoot = path.join(root, 'resources', 'js');
 const localeFiles = {
-    en: path.join(jsRoot, 'locales', 'en.ts'),
-    ar: path.join(jsRoot, 'locales', 'ar.ts'),
+    en: [path.join(jsRoot, 'locales', 'en.ts'), path.join(jsRoot, 'locales', 'en-extra.ts')],
+    ar: [path.join(jsRoot, 'locales', 'ar.ts'), path.join(jsRoot, 'locales', 'ar-extra.ts')],
 };
 
 const read = (file) => fs.readFileSync(file, 'utf8');
 const keyPattern = /^\s*['"]([^'"]+)['"]\s*:/gm;
 const usedKeyPattern = /\bt\(\s*['"]([^'"]+)['"]/g;
 
-function extractKeys(source) {
-    return new Set([...source.matchAll(keyPattern)].map((match) => match[1]));
+function extractKeys(sources) {
+    return new Set(
+        sources.flatMap((source) => [...source.matchAll(keyPattern)].map((match) => match[1])),
+    );
 }
 
 function walk(dir) {
@@ -26,10 +28,8 @@ function walk(dir) {
     });
 }
 
-const enSource = read(localeFiles.en);
-const arSource = read(localeFiles.ar);
-const enKeys = extractKeys(enSource);
-const arKeys = extractKeys(arSource);
+const enKeys = extractKeys(localeFiles.en.map(read));
+const arKeys = extractKeys(localeFiles.ar.map(read));
 const files = walk(jsRoot);
 const problems = [];
 
