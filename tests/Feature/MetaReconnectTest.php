@@ -2,6 +2,7 @@
 
 use App\Models\Contact;
 use App\Models\Conversation;
+use App\Models\WhatsAppAccount;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -73,7 +74,9 @@ it('restores the same WhatsApp account row when a disconnected Meta phone reconn
     $this->assertDatabaseHas('whatsapp_accounts', [
         'id' => $originalAccountId,
         'deleted_at' => null,
-        'access_token' => 'new-business-token',
         'status' => 'connected',
     ]);
+
+    $restored = WhatsAppAccount::withTrashed()->findOrFail($originalAccountId);
+    expect($restored->access_token)->toBe('new-business-token');
 });
