@@ -2,11 +2,16 @@ import { ar as arDate, enUS } from 'date-fns/locale';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { en } from '@/locales/en';
 import { ar } from '@/locales/ar';
+import { enExtra } from '@/locales/en-extra';
+import { arExtra } from '@/locales/ar-extra';
 
 type Locale = 'en' | 'ar';
 type Dict = Record<string, string>;
 
-const dictionaries: Record<Locale, Dict> = { en, ar };
+export const dictionaries: Record<Locale, Dict> = {
+    en: { ...en, ...enExtra },
+    ar: { ...ar, ...arExtra },
+};
 
 interface I18nContextValue {
     locale: Locale;
