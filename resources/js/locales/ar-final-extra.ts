@@ -1,5 +1,6 @@
 export const arFinalExtra: Record<string, string> = {
     'common.team': 'الفريق',
+    'common.delete': 'حذف',
 
     // Final automation canvas labels
     'automations.url': 'الرابط',
