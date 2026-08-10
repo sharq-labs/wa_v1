@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\WorkspaceRole;
 use App\Models\AgentTeam;
 use App\Models\Workspace;
 use Illuminate\Http\JsonResponse;
@@ -83,7 +84,16 @@ class AgentTeamController extends ApiController
             return;
         }
 
-        $validIds = $workspace->users()->whereIn('users.id', $memberIds)->pluck('users.id');
+        $validIds = $workspace->users()
+            ->whereIn('users.id', $memberIds)
+            ->wherePivotIn('role', [
+                WorkspaceRole::Owner->value,
+                WorkspaceRole::Admin->value,
+                WorkspaceRole::Manager->value,
+                WorkspaceRole::Agent->value,
+            ])
+            ->pluck('users.id');
+
         $team->members()->sync($validIds);
     }
 }
