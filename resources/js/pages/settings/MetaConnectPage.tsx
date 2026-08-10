@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { metaEmbeddedSignupApi } from '@/api/metaEmbeddedSignup';
 import { Alert, Button, Input, Label, Spinner } from '@/components/ui';
+import { useI18n } from '@/lib/i18n';
 import { launchMetaEmbeddedSignup } from '@/lib/metaEmbeddedSignup';
 import { useWorkspaceId } from '@/stores/authStore';
 import { toast } from '@/stores/toastStore';
@@ -12,6 +13,7 @@ export default function MetaConnectPage() {
     const workspaceId = useWorkspaceId();
     const queryClient = useQueryClient();
     const navigate = useNavigate();
+    const { t, dir } = useI18n();
     const [pin, setPin] = useState('');
     const [confirmPin, setConfirmPin] = useState('');
     const [accepted, setAccepted] = useState(false);
@@ -23,10 +25,10 @@ export default function MetaConnectPage() {
 
     const connect = useMutation({
         mutationFn: async () => {
-            if (!config.data) throw new Error('Meta configuration is not loaded yet.');
-            if (!/^\d{6}$/.test(pin)) throw new Error('Choose a six-digit WhatsApp two-step verification PIN.');
-            if (pin !== confirmPin) throw new Error('The two PIN values do not match.');
-            if (!accepted) throw new Error('Confirm that you understand the PIN must be kept securely.');
+            if (!config.data) throw new Error(t('meta_connect.config_not_loaded'));
+            if (!/^\d{6}$/.test(pin)) throw new Error(t('meta_connect.pin_invalid'));
+            if (pin !== confirmPin) throw new Error(t('meta_connect.pin_mismatch'));
+            if (!accepted) throw new Error(t('meta_connect.pin_ack_required'));
 
             const result = await launchMetaEmbeddedSignup(config.data);
 
@@ -44,7 +46,7 @@ export default function MetaConnectPage() {
                 queryClient.invalidateQueries({ queryKey: ['whatsapp-health', workspaceId] }),
                 queryClient.invalidateQueries({ queryKey: ['meta-signup-config', workspaceId] }),
             ]);
-            toast.success('WhatsApp connected.', 'The number is registered and subscribed to WhatsApp webhooks.');
+            toast.success(t('meta_connect.success_title'), t('meta_connect.success_desc'));
             setPin('');
             setConfirmPin('');
             navigate('/settings/whatsapp');
@@ -54,6 +56,12 @@ export default function MetaConnectPage() {
     const ready = config.data?.enabled === true;
     const pinValid = /^\d{6}$/.test(pin) && pin === confirmPin && accepted;
 
+    const steps = [
+        ['1', t('meta_connect.step_meta_title'), t('meta_connect.step_meta_desc')],
+        ['2', t('meta_connect.step_pin_title'), t('meta_connect.step_pin_desc')],
+        ['3', t('meta_connect.step_webhook_title'), t('meta_connect.step_webhook_desc')],
+    ];
+
     return (
         <div className="mx-auto w-full max-w-4xl space-y-6 p-5 md:p-8 lg:p-10">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -62,17 +70,17 @@ export default function MetaConnectPage() {
                         to="/settings/whatsapp"
                         className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800"
                     >
-                        <ArrowLeft size={16} />
-                        Back to WhatsApp settings
+                        <ArrowLeft size={16} className={dir === 'rtl' ? 'rotate-180' : undefined} />
+                        {t('meta_connect.back')}
                     </Link>
                     <h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight text-slate-900">
                         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm">
                             <MessageCircle size={23} />
                         </span>
-                        Connect WhatsApp with Meta
+                        {t('meta_connect.title')}
                     </h1>
                     <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-slate-500">
-                        Use Meta Embedded Signup to connect a real WhatsApp Business Account and phone number to this workspace.
+                        {t('meta_connect.subtitle')}
                     </p>
                 </div>
             </div>
@@ -86,31 +94,29 @@ export default function MetaConnectPage() {
             {config.isError && (
                 <Alert
                     tone="danger"
-                    title="Could not load Meta configuration."
+                    title={t('meta_connect.config_failed_title')}
                     action={
                         <Button size="sm" variant="secondary" onClick={() => config.refetch()}>
-                            Retry
+                            {t('common.retry')}
                         </Button>
                     }
                 >
-                    Check the server configuration, then try again.
+                    {t('meta_connect.config_failed_desc')}
                 </Alert>
             )}
 
             {config.data && !ready && (
-                <Alert tone="warning" title="Meta Embedded Signup is not ready on this server.">
-                    Missing: {(config.data.missing ?? []).join(', ') || 'required Meta configuration'}. Add these production values and reload this page.
+                <Alert tone="warning" title={t('meta_connect.not_configured_title')}>
+                    {t('meta_connect.not_configured_desc', {
+                        fields: (config.data.missing ?? []).join(', ') || 'META_*',
+                    })}
                 </Alert>
             )}
 
             {config.data && ready && (
                 <>
                     <div className="grid gap-4 md:grid-cols-3">
-                        {[
-                            ['1', 'Meta sign-in', 'Choose the Business Portfolio, WABA and phone number in Meta.'],
-                            ['2', 'Register number', 'WhatsFlow registers the selected Cloud API number with your six-digit PIN.'],
-                            ['3', 'Subscribe webhooks', 'WhatsFlow subscribes the WABA so inbound messages and status events arrive automatically.'],
-                        ].map(([number, title, description]) => (
+                        {steps.map(([number, title, description]) => (
                             <div key={number} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
                                 <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-800">
                                     {number}
@@ -128,16 +134,16 @@ export default function MetaConnectPage() {
                                     <LockKeyhole size={20} />
                                 </span>
                                 <div>
-                                    <h2 className="text-lg font-bold text-slate-900">Choose a two-step verification PIN</h2>
+                                    <h2 className="text-lg font-bold text-slate-900">{t('meta_connect.pin_title')}</h2>
                                     <p className="mt-1 text-sm leading-relaxed text-slate-500">
-                                        Meta requires a six-digit PIN when registering a WhatsApp Cloud API phone number. WhatsFlow uses it for the registration request and does not store it.
+                                        {t('meta_connect.pin_desc')}
                                     </p>
                                 </div>
                             </div>
 
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <div>
-                                    <Label>Six-digit PIN</Label>
+                                    <Label>{t('meta_connect.pin_label')}</Label>
                                     <Input
                                         type="password"
                                         inputMode="numeric"
@@ -149,7 +155,7 @@ export default function MetaConnectPage() {
                                     />
                                 </div>
                                 <div>
-                                    <Label>Confirm PIN</Label>
+                                    <Label>{t('meta_connect.pin_confirm_label')}</Label>
                                     <Input
                                         type="password"
                                         inputMode="numeric"
@@ -163,7 +169,7 @@ export default function MetaConnectPage() {
                             </div>
 
                             {pin.length === 6 && confirmPin.length === 6 && pin !== confirmPin && (
-                                <p className="mt-2 text-sm font-medium text-red-600">The PIN values do not match.</p>
+                                <p className="mt-2 text-sm font-medium text-red-600">{t('meta_connect.pin_mismatch')}</p>
                             )}
 
                             <label className="mt-5 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900">
@@ -173,9 +179,7 @@ export default function MetaConnectPage() {
                                     checked={accepted}
                                     onChange={(event) => setAccepted(event.target.checked)}
                                 />
-                                <span>
-                                    I will keep this PIN securely. Meta may require it again for phone registration or account changes.
-                                </span>
+                                <span>{t('meta_connect.pin_ack')}</span>
                             </label>
 
                             <Button
@@ -184,7 +188,7 @@ export default function MetaConnectPage() {
                                 loading={connect.isPending}
                                 onClick={() => connect.mutate()}
                             >
-                                Continue with Meta
+                                {t('meta_connect.continue')}
                             </Button>
                         </div>
 
@@ -192,20 +196,22 @@ export default function MetaConnectPage() {
                             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
                                 <div className="flex items-center gap-2 font-semibold text-emerald-900">
                                     <ShieldCheck size={19} />
-                                    Secure onboarding
+                                    {t('meta_connect.secure_title')}
                                 </div>
                                 <ul className="mt-3 space-y-2 text-sm leading-relaxed text-emerald-800">
-                                    <li className="flex gap-2"><CheckCircle2 className="mt-0.5 shrink-0" size={16} /> Access token is exchanged server-side.</li>
-                                    <li className="flex gap-2"><CheckCircle2 className="mt-0.5 shrink-0" size={16} /> Token is never returned to the browser.</li>
-                                    <li className="flex gap-2"><CheckCircle2 className="mt-0.5 shrink-0" size={16} /> WABA and phone IDs must match Meta data before saving.</li>
-                                    <li className="flex gap-2"><CheckCircle2 className="mt-0.5 shrink-0" size={16} /> Webhook subscription must succeed before the account is connected.</li>
+                                    {[t('meta_connect.secure_token'), t('meta_connect.secure_pin'), t('meta_connect.secure_validation'), t('meta_connect.secure_storage')].map((item) => (
+                                        <li key={item} className="flex gap-2">
+                                            <CheckCircle2 className="mt-0.5 shrink-0" size={16} />
+                                            {item}
+                                        </li>
+                                    ))}
                                 </ul>
                             </div>
 
                             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
-                                <p className="font-semibold text-slate-900">Before you start</p>
+                                <p className="font-semibold text-slate-900">{t('meta_connect.before_title')}</p>
                                 <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                                    Open this page on the production HTTPS domain registered in your Meta app. Popup blockers and unapproved domains can prevent the Meta dialog from opening.
+                                    {t('meta_connect.before_desc')}
                                 </p>
                                 <a
                                     href="/legal/privacy"
@@ -213,7 +219,7 @@ export default function MetaConnectPage() {
                                     rel="noreferrer"
                                     className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:text-brand-900"
                                 >
-                                    Privacy policy <ExternalLink size={14} />
+                                    {t('meta_connect.privacy')} <ExternalLink size={14} />
                                 </a>
                             </div>
                         </div>

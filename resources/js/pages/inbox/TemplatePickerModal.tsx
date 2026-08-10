@@ -72,12 +72,13 @@ export default function TemplatePickerModal({
     });
 
     const contactFieldOptions = ['first_name', 'last_name', 'full_name', 'phone_number', 'email'];
+    const contactFieldLabel = (field: string) => t(`contact.${field}`);
 
     return (
         <Modal open={open} onClose={onClose} title={t('inbox.send_template')} wide>
             <div className="space-y-4">
                 <div>
-                    <Label>Template</Label>
+                    <Label>{t('inbox.template')}</Label>
                     <Select value={templateId} onChange={(e) => { setTemplateId(e.target.value); setMappings([]); }}>
                         <option value="">—</option>
                         {templates.data?.map((item) => (
@@ -90,7 +91,7 @@ export default function TemplatePickerModal({
 
                 {template && variableIndexes.length > 0 && (
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold text-slate-600">Variable mapping</p>
+                        <p className="text-xs font-semibold text-slate-600">{t('inbox.variable_mapping')}</p>
                         {variableIndexes.map((index) => {
                             const mapping = mappings.find((m) => m.index === index) ?? { index, source: 'static' as const, value: '' };
                             return (
@@ -103,28 +104,28 @@ export default function TemplatePickerModal({
                                         onChange={(e) => setMapping(index, { source: e.target.value as Mapping['source'], value: '' })}
                                         className="!w-32"
                                     >
-                                        <option value="static">Static</option>
-                                        <option value="contact">Contact</option>
-                                        <option value="custom">Custom field</option>
-                                        <option value="workspace">Workspace</option>
-                                        <option value="agent">Agent</option>
+                                        <option value="static">{t('inbox.source_static')}</option>
+                                        <option value="contact">{t('inbox.source_contact')}</option>
+                                        <option value="custom">{t('inbox.source_custom')}</option>
+                                        <option value="workspace">{t('inbox.source_workspace')}</option>
+                                        <option value="agent">{t('inbox.source_agent')}</option>
                                     </Select>
                                     {mapping.source === 'static' ? (
                                         <input
                                             value={mapping.value}
                                             onChange={(e) => setMapping(index, { value: e.target.value })}
-                                            placeholder="Value…"
+                                            placeholder={t('inbox.value_placeholder')}
                                             className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
                                         />
                                     ) : (
                                         <Select value={mapping.value} onChange={(e) => setMapping(index, { value: e.target.value })} className="flex-1">
                                             <option value="">—</option>
                                             {mapping.source === 'contact' &&
-                                                contactFieldOptions.map((f) => <option key={f} value={f}>{f}</option>)}
+                                                contactFieldOptions.map((field) => <option key={field} value={field}>{contactFieldLabel(field)}</option>)}
                                             {mapping.source === 'custom' &&
-                                                customFields.data?.map((f) => <option key={f.key} value={f.key}>{f.name}</option>)}
-                                            {mapping.source === 'workspace' && <option value="name">name</option>}
-                                            {mapping.source === 'agent' && <option value="name">name</option>}
+                                                customFields.data?.map((field) => <option key={field.key} value={field.key}>{field.name}</option>)}
+                                            {mapping.source === 'workspace' && <option value="name">{t('common.name')}</option>}
+                                            {mapping.source === 'agent' && <option value="name">{t('common.name')}</option>}
                                         </Select>
                                     )}
                                 </div>

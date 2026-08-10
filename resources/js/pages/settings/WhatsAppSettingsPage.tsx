@@ -12,7 +12,7 @@ export default function WhatsAppSettingsPage() {
     const workspaceId = useWorkspaceId();
     const queryClient = useQueryClient();
     const navigate = useNavigate();
-    const { t, statusLabel } = useI18n();
+    const { t, statusLabel, dir, locale } = useI18n();
 
     const accounts = useQuery({
         queryKey: ['wa-accounts', workspaceId],
@@ -28,7 +28,7 @@ export default function WhatsAppSettingsPage() {
         mutationFn: () => whatsappApi.connectFake(workspaceId),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['wa-accounts', workspaceId] });
-            toast.success('Sandbox WhatsApp number connected.');
+            toast.success(t('wa_settings.sandbox_connected'));
         },
     });
 
@@ -36,7 +36,7 @@ export default function WhatsAppSettingsPage() {
         mutationFn: (id: number) => whatsappApi.disconnect(workspaceId, id),
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ['wa-accounts', workspaceId] });
-            toast.success('WhatsApp number disconnected.');
+            toast.success(t('wa_settings.disconnected'));
         },
     });
 
@@ -47,7 +47,7 @@ export default function WhatsAppSettingsPage() {
                 queryClient.invalidateQueries({ queryKey: ['templates', workspaceId] }),
                 queryClient.invalidateQueries({ queryKey: ['wa-accounts', workspaceId] }),
             ]);
-            toast.success('Templates synced.');
+            toast.success(t('wa_settings.templates_synced'));
         },
     });
 
@@ -61,7 +61,7 @@ export default function WhatsAppSettingsPage() {
                         to="/settings"
                         className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800"
                     >
-                        <ArrowLeft size={16} />
+                        <ArrowLeft size={16} className={dir === 'rtl' ? 'rotate-180' : undefined} />
                         {t('nav.settings')}
                     </Link>
                     <h1 className="flex items-center gap-3 text-3xl font-bold tracking-tight text-slate-900">
@@ -71,7 +71,7 @@ export default function WhatsAppSettingsPage() {
                         {t('settings.whatsapp')}
                     </h1>
                     <p className="mt-2 text-[15px] leading-relaxed text-slate-500">
-                        Connect official Meta WhatsApp Business numbers, monitor connection status and synchronize templates.
+                        {t('wa_settings.subtitle')}
                     </p>
                 </div>
 
@@ -88,24 +88,24 @@ export default function WhatsAppSettingsPage() {
                     ) : (
                         <Button onClick={() => connectFake.mutate()} loading={connectFake.isPending}>
                             <Plus size={17} />
-                            {t('settings.connect_whatsapp')} (sandbox)
+                            {t('settings.connect_whatsapp')} ({t('settings.sandbox')})
                         </Button>
                     )}
                 </div>
             </div>
 
             {embeddedSignup && (
-                <Alert tone="success" title="Meta Embedded Signup is ready">
+                <Alert tone="success" title={t('wa_settings.meta_ready_title')}>
                     <span className="inline-flex items-center gap-2">
                         <ShieldCheck size={17} />
-                        The production Meta configuration is available. Use Connect WhatsApp to open the official Meta onboarding flow.
+                        {t('wa_settings.meta_ready_desc')}
                     </span>
                 </Alert>
             )}
 
             {signupConfig.data && !signupConfig.data.enabled && (
-                <Alert tone="warning" title="Real Meta onboarding is not configured yet">
-                    Local development can use the sandbox number. On production, configure the Meta App ID, App Secret and Embedded Signup configuration ID to enable the official connection flow.
+                <Alert tone="warning" title={t('wa_settings.meta_missing_title')}>
+                    {t('wa_settings.meta_missing_desc')}
                 </Alert>
             )}
 
@@ -130,9 +130,9 @@ export default function WhatsAppSettingsPage() {
             ) : (accounts.data ?? []).length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-card">
                     <MessageCircle className="mx-auto text-slate-300" size={38} />
-                    <h2 className="mt-4 text-lg font-bold text-slate-900">No WhatsApp number connected</h2>
+                    <h2 className="mt-4 text-lg font-bold text-slate-900">{t('wa_settings.no_number_title')}</h2>
                     <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-slate-500">
-                        Connect a real Meta WhatsApp Business number to send and receive customer messages, or use the sandbox provider during local development.
+                        {t('wa_settings.no_number_desc')}
                     </p>
                 </div>
             ) : (
@@ -146,10 +146,10 @@ export default function WhatsAppSettingsPage() {
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
                                         <p className="truncate text-lg font-semibold text-slate-900">
-                                            {account.display_phone_number || `WhatsApp #${account.id}`}
+                                            {account.display_phone_number || t('wa_settings.account_fallback', { id: account.id })}
                                         </p>
                                         <p className="mt-1 truncate text-sm text-slate-500">
-                                            {account.verified_name || 'WhatsApp Business'}
+                                            {account.verified_name || t('wa_settings.business')}
                                         </p>
                                     </div>
                                     <Badge color={statusColor(account.status)}>{statusLabel(account.status)}</Badge>
@@ -157,15 +157,19 @@ export default function WhatsAppSettingsPage() {
 
                                 <div className="mt-4 flex flex-wrap gap-2">
                                     <Badge color={account.provider === 'meta' ? 'green' : 'slate'}>
-                                        {account.provider === 'meta' ? 'Meta Cloud API' : 'Sandbox'}
+                                        {account.provider === 'meta' ? t('wa_settings.provider_meta') : t('wa_settings.provider_sandbox')}
                                     </Badge>
-                                    {account.quality_rating && <Badge color="green">Quality: {account.quality_rating}</Badge>}
+                                    {account.quality_rating && (
+                                        <Badge color="green">{t('wa_settings.quality', { value: account.quality_rating })}</Badge>
+                                    )}
                                     {account.messaging_limit && <Badge color="blue">{account.messaging_limit}</Badge>}
                                 </div>
 
                                 {account.last_sync_at && (
                                     <p className="mt-3 text-xs text-slate-400">
-                                        Last sync: {new Date(account.last_sync_at).toLocaleString()}
+                                        {t('wa_settings.last_sync', {
+                                            value: new Date(account.last_sync_at).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US'),
+                                        })}
                                     </p>
                                 )}
                             </div>
@@ -178,7 +182,7 @@ export default function WhatsAppSettingsPage() {
                                     onClick={() => sync.mutate(account.id)}
                                 >
                                     <RefreshCw size={15} />
-                                    Sync templates
+                                    {t('wa_settings.sync_templates')}
                                 </Button>
                                 <Button
                                     size="sm"

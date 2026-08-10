@@ -83,6 +83,9 @@ jobs:
       - name: Frontend lint
         run: npm run lint
 
+      - name: Translation coverage
+        run: npm run i18n:audit
+
       - name: TypeScript
         run: npm run typecheck
 

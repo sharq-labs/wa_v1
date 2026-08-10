@@ -8,7 +8,8 @@
         "lint": "eslint resources/js",
         "format": "prettier --write resources/js",
         "typecheck": "tsc --noEmit",
-        "test": "vitest run"
+        "test": "vitest run",
+        "i18n:audit": "node scripts/audit-i18n.mjs"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.3.3",

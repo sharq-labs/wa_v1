@@ -293,7 +293,6 @@ export function Select({
                 />
             </button>
 
-            {/* Keep a hidden native select for forms / autofill / name submission. */}
             <select
                 tabIndex={-1}
                 aria-hidden="true"
@@ -426,10 +425,6 @@ export function statusColor(status: string): string {
     )[status] ?? 'slate';
 }
 
-/**
- * Shape-preserving placeholder. Prefer this over a centred spinner wherever the
- * final layout is predictable — it stops the page jumping when data lands.
- */
 export function Skeleton({ className }: { className?: string }) {
     return <div className={clsx('animate-skeleton rounded-md bg-slate-200/70', className)} aria-hidden="true" />;
 }
@@ -576,6 +571,8 @@ export function Modal({
     children: ReactNode;
     wide?: boolean;
 }) {
+    const { t } = useI18n();
+
     useEffect(() => {
         if (!open) return;
         const onKeyDown = (e: KeyboardEvent) => {
@@ -606,7 +603,7 @@ export function Modal({
                     <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
                     <button
                         onClick={onClose}
-                        aria-label="Close"
+                        aria-label={t('common.close')}
                         className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 focus-visible:outline-2 focus-visible:outline-brand-600"
                     >
                         <X size={16} />

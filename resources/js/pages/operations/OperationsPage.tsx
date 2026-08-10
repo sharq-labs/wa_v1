@@ -6,16 +6,25 @@ import { Button, Select, Spinner } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
 import { useWorkspaceId } from '@/stores/authStore';
 
-const TARGETS = [
-    ['phone_number', 'Phone number'],
-    ['first_name', 'First name'],
-    ['last_name', 'Last name'],
-    ['display_name', 'Display name'],
-    ['email', 'Email'],
-    ['country', 'Country'],
-    ['language', 'Language'],
-    ['opt_in_status', 'Marketing consent'],
-] as const;
+const TARGETS = ['phone_number', 'first_name', 'last_name', 'display_name', 'email', 'country', 'language', 'opt_in_status'] as const;
+
+const STATUS_AR: Record<string, string> = {
+    healthy: 'سليم', critical: 'حرج', warning: 'تحذير', disconnected: 'غير متصل',
+    uploaded: 'تم الرفع', queued: 'في قائمة الانتظار', processing: 'جاري المعالجة', completed: 'مكتمل', failed: 'فشل',
+};
+
+function healthIssue(issue: string, ar: boolean): string {
+    if (!ar) return issue;
+    if (issue === 'WhatsApp account is disconnected.') return 'حساب واتساب غير متصل.';
+    if (issue === 'WhatsApp quality rating is low.') return 'تقييم جودة واتساب منخفض.';
+    if (issue === 'WhatsApp quality rating needs attention.') return 'تقييم جودة واتساب يحتاج إلى مراجعة.';
+    if (issue === 'Account/template sync is older than 24 hours.') return 'آخر مزامنة للحساب أو القوالب أقدم من 24 ساعة.';
+    const messageFailure = issue.match(/^(\d+) outbound message\(s\) failed in the last 24 hours\.$/);
+    if (messageFailure) return `فشل إرسال ${messageFailure[1]} رسالة خلال آخر 24 ساعة.`;
+    const templateFailure = issue.match(/^(\d+) template\(s\) are rejected, paused or disabled\.$/);
+    if (templateFailure) return `يوجد ${templateFailure[1]} قالب مرفوض أو متوقف مؤقتًا أو معطل.`;
+    return issue;
+}
 
 export default function OperationsPage() {
     const workspaceId = useWorkspaceId();
@@ -142,13 +151,14 @@ function HealthTab({ data, loading, onRefresh, ar }: any) {
     if (loading) return <Spinner className="mx-auto mt-16" />;
     const accounts = data?.accounts ?? [];
     const tone = data?.status === 'healthy' ? 'text-emerald-700 bg-emerald-50' : data?.status === 'critical' ? 'text-red-700 bg-red-50' : 'text-amber-700 bg-amber-50';
+    const status = data?.status ?? 'disconnected';
 
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4">
                 <div>
                     <p className="text-sm text-slate-500">{ar ? 'الحالة العامة' : 'Overall status'}</p>
-                    <p className={`mt-1 inline-flex rounded-full px-3 py-1 text-sm font-bold ${tone}`}>{data?.status ?? 'disconnected'}</p>
+                    <p className={`mt-1 inline-flex rounded-full px-3 py-1 text-sm font-bold ${tone}`}>{ar ? (STATUS_AR[status] ?? status) : status}</p>
                 </div>
                 <Button variant="secondary" onClick={onRefresh}><RefreshCw size={15} /> {ar ? 'تحديث' : 'Refresh'}</Button>
             </div>
@@ -165,14 +175,14 @@ function HealthTab({ data, loading, onRefresh, ar }: any) {
                             {account.health === 'healthy' ? <CheckCircle2 className="text-emerald-600" /> : <AlertTriangle className={account.health === 'critical' ? 'text-red-600' : 'text-amber-600'} />}
                         </div>
                         <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-                            <Metric label={ar ? 'الجودة' : 'Quality'} value={account.quality_rating || 'Unknown'} />
-                            <Metric label={ar ? 'حد الرسائل' : 'Messaging limit'} value={account.messaging_limit || 'Unknown'} />
+                            <Metric label={ar ? 'الجودة' : 'Quality'} value={account.quality_rating || (ar ? 'غير معروف' : 'Unknown')} />
+                            <Metric label={ar ? 'حد الرسائل' : 'Messaging limit'} value={account.messaging_limit || (ar ? 'غير معروف' : 'Unknown')} />
                             <Metric label={ar ? 'القوالب المعتمدة' : 'Approved templates'} value={account.templates.approved} />
                             <Metric label={ar ? 'فشل آخر 24 ساعة' : '24h failures'} value={account.outbound_failures_24h} />
                         </div>
                         {account.issues.length > 0 && (
                             <div className="mt-4 space-y-1 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
-                                {account.issues.map((issue: string) => <p key={issue}>• {issue}</p>)}
+                                {account.issues.map((issue: string) => <p key={issue}>• {healthIssue(issue, ar)}</p>)}
                             </div>
                         )}
                     </div>
@@ -183,6 +193,13 @@ function HealthTab({ data, loading, onRefresh, ar }: any) {
 }
 
 function ImportsTab({ items, loading, uploaded, mapping, setMapping, onFile, uploading, onStart, starting, ar }: any) {
+    const targetLabel = (target: typeof TARGETS[number]) => {
+        const labels = ar
+            ? { phone_number: 'رقم الهاتف', first_name: 'الاسم الأول', last_name: 'اسم العائلة', display_name: 'الاسم المعروض', email: 'البريد الإلكتروني', country: 'الدولة', language: 'اللغة', opt_in_status: 'الموافقة التسويقية' }
+            : { phone_number: 'Phone number', first_name: 'First name', last_name: 'Last name', display_name: 'Display name', email: 'Email', country: 'Country', language: 'Language', opt_in_status: 'Marketing consent' };
+        return labels[target];
+    };
+
     return (
         <div className="space-y-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -213,15 +230,18 @@ function ImportsTab({ items, loading, uploaded, mapping, setMapping, onFile, upl
                         </div>
                     </div>
                     <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        {TARGETS.map(([target, label]) => (
-                            <div key={target}>
-                                <label className="mb-1 block text-xs font-semibold text-slate-500">{target === 'phone_number' ? `${label} *` : label}</label>
-                                <Select value={mapping[target] ?? ''} onChange={(e) => setMapping((prev: Record<string, string>) => ({ ...prev, [target]: e.target.value }))}>
-                                    <option value="">—</option>
-                                    {uploaded.headers.map((header: string) => <option key={header} value={header}>{header}</option>)}
-                                </Select>
-                            </div>
-                        ))}
+                        {TARGETS.map((target) => {
+                            const label = targetLabel(target);
+                            return (
+                                <div key={target}>
+                                    <label className="mb-1 block text-xs font-semibold text-slate-500">{target === 'phone_number' ? `${label} *` : label}</label>
+                                    <Select value={mapping[target] ?? ''} onChange={(e) => setMapping((prev: Record<string, string>) => ({ ...prev, [target]: e.target.value }))}>
+                                        <option value="">—</option>
+                                        {uploaded.headers.map((header: string) => <option key={header} value={header}>{header}</option>)}
+                                    </Select>
+                                </div>
+                            );
+                        })}
                     </div>
                     <Button className="mt-4" disabled={!mapping.phone_number || starting} onClick={onStart}>
                         {starting ? (ar ? 'جاري البدء…' : 'Starting…') : (ar ? 'بدء الاستيراد' : 'Start import')}
@@ -236,7 +256,7 @@ function ImportsTab({ items, loading, uploaded, mapping, setMapping, onFile, upl
                         {items.map((item: any) => (
                             <div key={item.id} className="p-4">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div><p className="font-semibold text-slate-800">{item.original_filename}</p><p className="text-xs text-slate-500">{item.status}</p></div>
+                                    <div><p className="font-semibold text-slate-800">{item.original_filename}</p><p className="text-xs text-slate-500">{ar ? (STATUS_AR[item.status] ?? item.status) : item.status}</p></div>
                                     <div className="flex gap-3 text-xs">
                                         <span className="text-emerald-700">+{item.imported_count}</span>
                                         <span className="text-blue-700">↻{item.updated_count}</span>

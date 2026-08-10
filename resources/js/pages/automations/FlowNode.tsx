@@ -81,7 +81,7 @@ function ActionButton({
  * Canvas node with inline config fields and per-box actions (settings / duplicate / delete).
  */
 function FlowNodeComponent({ id, data, selected }: NodeProps) {
-    const { t } = useI18n();
+    const { t, locale } = useI18n();
     const type = data.nodeType as string;
     const config = (data.config ?? {}) as Record<string, any>;
     const meta = NODE_META[type];
@@ -107,7 +107,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
             case 'trigger_keyword':
                 return (
                     <div className="space-y-2">
-                        <Field label="Keywords">
+                        <Field label={t('automations.keywords')}>
                             <input
                                 className={fieldClass}
                                 value={(config.keywords ?? []).join(', ')}
@@ -123,7 +123,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
                                 }}
                             />
                         </Field>
-                        <Field label="Match">
+                        <Field label={t('automations.match_type')}>
                             <Select
                                 size="sm" className="nodrag nopan"
                                 value={config.match_type ?? 'contains'}
@@ -132,10 +132,10 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
                                     patch({ match_type: e.target.value });
                                 }}
                             >
-                                <option value="contains">Contains</option>
-                                <option value="exact">Exact</option>
-                                <option value="starts_with">Starts with</option>
-                                <option value="ends_with">Ends with</option>
+                                <option value="contains">{t('automations.match_contains')}</option>
+                                <option value="exact">{t('automations.match_exact')}</option>
+                                <option value="starts_with">{t('automations.match_starts')}</option>
+                                <option value="ends_with">{t('automations.match_ends')}</option>
                             </Select>
                         </Field>
                     </div>
@@ -193,9 +193,9 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
                                     patch({ validation: e.target.value });
                                 }}
                             >
-                                {['text', 'number', 'email', 'phone', 'date', 'choice'].map((v) => (
-                                    <option key={v} value={v}>
-                                        {v}
+                                {['text', 'number', 'email', 'phone', 'date', 'choice'].map((value) => (
+                                    <option key={value} value={value}>
+                                        {t(`automations.validation_${value}`)}
                                     </option>
                                 ))}
                             </Select>
@@ -306,7 +306,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
             case 'send_document':
                 return (
                     <div className="space-y-2">
-                        <Field label="URL">
+                        <Field label={t('automations.url')}>
                             <input
                                 className={fieldClass}
                                 value={config.url ?? ''}
@@ -318,7 +318,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
                             />
                         </Field>
                         {type !== 'send_audio' && (
-                            <Field label="Caption">
+                            <Field label={t('automations.field_caption')}>
                                 <input
                                     className={fieldClass}
                                     value={config.caption ?? ''}
@@ -334,12 +334,12 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
 
             case 'send_template':
                 return (
-                    <Field label="Template ID">
+                    <Field label={t('automations.field_template')}>
                         <input
                             className={fieldClass}
                             type="number"
                             value={config.template_id ?? ''}
-                            placeholder="Select in settings…"
+                            placeholder={t('automations.select_in_settings')}
                             onChange={(e) => {
                                 stopNodeDrag(e);
                                 patch({ template_id: e.target.value ? Number(e.target.value) : null });
@@ -351,7 +351,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
             case 'set_custom_field':
                 return (
                     <div className="space-y-2">
-                        <Field label="Field key">
+                        <Field label={t('automations.custom_field')}>
                             <input
                                 className={fieldClass}
                                 value={config.field_key ?? ''}
@@ -362,7 +362,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
                                 }}
                             />
                         </Field>
-                        <Field label="Value">
+                        <Field label={t('automations.value')}>
                             <input
                                 className={fieldClass}
                                 value={config.value ?? ''}
@@ -378,7 +378,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
 
             case 'clear_custom_field':
                 return (
-                    <Field label="Field key">
+                    <Field label={t('automations.custom_field')}>
                         <input
                             className={fieldClass}
                             value={config.field_key ?? ''}
@@ -393,7 +393,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
             case 'add_tag':
             case 'remove_tag':
                 return (
-                    <Field label="Tag name">
+                    <Field label={t('automations.tag_name')}>
                         <input
                             className={fieldClass}
                             value={config.tag_name ?? ''}
@@ -411,23 +411,23 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
                 return (
                     <div className="space-y-2">
                         <div className="grid grid-cols-[72px_1fr] gap-1.5">
-                            <Field label="Method">
+                            <Field label={t('automations.http_method')}>
                                 <Select
-                                size="sm" className="nodrag nopan"
+                                    size="sm" className="nodrag nopan"
                                     value={config.method ?? 'POST'}
                                     onChange={(e) => {
                                         stopNodeDrag(e);
                                         patch({ method: e.target.value });
                                     }}
                                 >
-                                    {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((m) => (
-                                        <option key={m} value={m}>
-                                            {m}
+                                    {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((method) => (
+                                        <option key={method} value={method}>
+                                            {method}
                                         </option>
                                     ))}
                                 </Select>
                             </Field>
-                            <Field label="URL">
+                            <Field label={t('automations.url')}>
                                 <input
                                     className={fieldClass}
                                     value={config.url ?? ''}
@@ -445,31 +445,31 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
             case 'assign_agent':
                 return (
                     <div className="space-y-2">
-                        <Field label="Agent ID">
+                        <Field label={t('automations.agent_id')}>
                             <input
                                 className={fieldClass}
                                 type="number"
                                 value={config.user_id ?? ''}
-                                placeholder="optional"
+                                placeholder={t('automations.optional')}
                                 onChange={(e) => {
                                     stopNodeDrag(e);
                                     patch({ user_id: e.target.value ? Number(e.target.value) : null });
                                 }}
                             />
                         </Field>
-                        <Field label="Team ID">
+                        <Field label={t('automations.team_id')}>
                             <input
                                 className={fieldClass}
                                 type="number"
                                 value={config.team_id ?? ''}
-                                placeholder="optional"
+                                placeholder={t('automations.optional')}
                                 onChange={(e) => {
                                     stopNodeDrag(e);
                                     patch({ team_id: e.target.value ? Number(e.target.value) : null });
                                 }}
                             />
                         </Field>
-                        <Field label="Strategy">
+                        <Field label={t('automations.assignment_strategy')}>
                             <Select
                                 size="sm" className="nodrag nopan"
                                 value={config.strategy ?? 'round_robin'}
@@ -478,9 +478,9 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
                                     patch({ strategy: e.target.value });
                                 }}
                             >
-                                <option value="round_robin">Round robin</option>
-                                <option value="least_busy">Least busy</option>
-                                <option value="random">Random</option>
+                                <option value="round_robin">{t('automations.strategy_round_robin')}</option>
+                                <option value="least_busy">{t('automations.strategy_least_busy')}</option>
+                                <option value="random">{t('automations.strategy_random')}</option>
                             </Select>
                         </Field>
                     </div>
@@ -530,7 +530,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
                             <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">
                                 {matchLabel}
                                 <span className="rounded bg-white/80 px-1 py-px text-[9px] font-bold tracking-wide text-blue-500">
-                                    {isAny ? 'OR' : 'AND'}
+                                    {locale === 'ar' ? (isAny ? 'أو' : 'و') : (isAny ? 'OR' : 'AND')}
                                 </span>
                             </span>
                             <span className="text-[10px] font-medium text-slate-400">
@@ -580,7 +580,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
             case 'delay':
                 return (
                     <div className="grid grid-cols-2 gap-1.5">
-                        <Field label="Amount">
+                        <Field label={t('automations.amount')}>
                             <input
                                 className={fieldClass}
                                 type="number"
@@ -592,7 +592,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
                                 }}
                             />
                         </Field>
-                        <Field label="Unit">
+                        <Field label={t('automations.unit')}>
                             <Select
                                 size="sm" className="nodrag nopan"
                                 value={config.unit ?? 'minutes'}
@@ -601,10 +601,10 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
                                     patch({ unit: e.target.value });
                                 }}
                             >
-                                <option value="seconds">Seconds</option>
-                                <option value="minutes">Minutes</option>
-                                <option value="hours">Hours</option>
-                                <option value="days">Days</option>
+                                <option value="seconds">{t('automations.unit_seconds')}</option>
+                                <option value="minutes">{t('automations.unit_minutes')}</option>
+                                <option value="hours">{t('automations.unit_hours')}</option>
+                                <option value="days">{t('automations.unit_days')}</option>
                             </Select>
                         </Field>
                     </div>
@@ -613,7 +613,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
             case 'wait_until':
                 return (
                     <div className="space-y-2">
-                        <Field label="Mode">
+                        <Field label={t('automations.wait_mode')}>
                             <Select
                                 size="sm" className="nodrag nopan"
                                 value={config.mode ?? 'tomorrow'}
@@ -622,12 +622,12 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
                                     patch({ mode: e.target.value });
                                 }}
                             >
-                                <option value="tomorrow">Tomorrow</option>
-                                <option value="weekday">Weekday</option>
-                                <option value="datetime">Date & time</option>
+                                <option value="tomorrow">{t('automations.wait_tomorrow_short')}</option>
+                                <option value="weekday">{t('automations.wait_weekday')}</option>
+                                <option value="datetime">{t('automations.wait_datetime')}</option>
                             </Select>
                         </Field>
-                        <Field label="Time">
+                        <Field label={t('automations.time')}>
                             <input
                                 className={fieldClass}
                                 type="time"
@@ -668,7 +668,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
 
             case 'go_to_node':
                 return (
-                    <Field label="Target node ID">
+                    <Field label={t('automations.target_node_id')}>
                         <input
                             className={fieldClass}
                             value={config.target_node_id ?? ''}
@@ -682,7 +682,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
 
             case 'start_automation':
                 return (
-                    <Field label="Automation ID">
+                    <Field label={t('automations.automation_id')}>
                         <input
                             className={fieldClass}
                             type="number"
@@ -707,6 +707,14 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
                 return <p className="text-[12px] leading-relaxed text-slate-600">{fallbackDesc || '—'}</p>;
         }
     })();
+
+    const translatedHandleLabel = (handle: { id: string; label?: string }) => {
+        if (handle.id === 'true') return t('automations.condition_true');
+        if (handle.id === 'false') return t('automations.condition_false');
+        if (handle.id === 'error') return t('automations.handle_error');
+        if (handle.id === 'next' || handle.id === 'success') return handle.id === 'success' ? t('automations.handle_success') : t('common.next');
+        return handle.label;
+    };
 
     return (
         <div
@@ -760,11 +768,7 @@ function FlowNodeComponent({ id, data, selected }: NodeProps) {
                             <div key={handle.id} className="relative flex flex-col items-center" style={{ minWidth: 28 }}>
                                 {handle.label && (
                                     <span className="mb-0.5 max-w-[72px] truncate text-[10px] font-semibold text-slate-500">
-                                        {handle.id === 'true'
-                                            ? t('automations.condition_true')
-                                            : handle.id === 'false'
-                                              ? t('automations.condition_false')
-                                              : handle.label}
+                                        {translatedHandleLabel(handle)}
                                     </span>
                                 )}
                                 <Handle
