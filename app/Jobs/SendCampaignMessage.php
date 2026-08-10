@@ -9,6 +9,7 @@ use App\Enums\MessageSenderType;
 use App\Enums\MessageStatus;
 use App\Models\CampaignRecipient;
 use App\Models\Conversation;
+use App\Services\Billing\EntitlementsService;
 use App\Services\Campaigns\CampaignPolicyService;
 use App\Services\Campaigns\CampaignService;
 use App\Services\Messaging\MessageService;
@@ -35,6 +36,7 @@ class SendCampaignMessage implements ShouldQueue
         TemplateRenderer $renderer,
         CampaignService $campaigns,
         CampaignPolicyService $policy,
+        EntitlementsService $entitlements,
     ): void {
         // Read state before claiming so a quiet-hours delay leaves the recipient
         // pending and another duplicate job can still safely race later.
@@ -54,6 +56,12 @@ class SendCampaignMessage implements ShouldQueue
         }
 
         if ($previewCampaign->status === CampaignStatus::Paused) {
+            return;
+        }
+
+        if (! $entitlements->canCreateCampaign($previewCampaign->workspace)) {
+            $previewCampaign->update(['status' => CampaignStatus::Paused]);
+
             return;
         }
 
@@ -90,6 +98,16 @@ class SendCampaignMessage implements ShouldQueue
 
         if ($campaign->status === CampaignStatus::Paused) {
             $recipient->update(['status' => 'pending']);
+
+            return;
+        }
+
+        // A delayed job can outlive the subscription that originally queued it.
+        // Check again after claiming so a downgrade/expiry race never sends one
+        // last message with an entitlement that is no longer active.
+        if (! $entitlements->canCreateCampaign($campaign->workspace)) {
+            $recipient->update(['status' => 'pending']);
+            $campaign->update(['status' => CampaignStatus::Paused]);
 
             return;
         }
