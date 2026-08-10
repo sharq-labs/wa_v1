@@ -86,9 +86,11 @@ function ignored(text) {
         compact.includes('onChange=') ||
         compact.includes('value=') ||
         compact.includes('className=') ||
-        compact.includes(' t(`') ||
-        compact.includes(" t('") ||
-        compact.includes(' t("')
+        compact.includes('t(`') ||
+        compact.includes("t('") ||
+        compact.includes('t("') ||
+        compact.includes('.map(') ||
+        compact.includes('.includes(')
     ) return true;
     if (compact.length > 160) return true;
     if (/^[A-Z0-9_./:+#-]+$/.test(compact)) return true;
