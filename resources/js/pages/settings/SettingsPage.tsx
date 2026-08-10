@@ -165,25 +165,21 @@ export default function SettingsPage() {
 
 function WorkspaceTab() {
     const workspaceId = useWorkspaceId();
-
     const workspace = useQuery({
         queryKey: ['workspace', workspaceId],
         queryFn: async () => (await workspacesApi.get(workspaceId)).data,
     });
 
-    // Checked before the loading branch: on a failed request `isLoading` is false
-    // and `data` is undefined, which would otherwise spin forever.
     if (workspace.isError) return <QueryError onRetry={() => workspace.refetch()} />;
     if (workspace.isLoading || !workspace.data) return <Spinner />;
 
-    // Keyed by workspace so the form re-initialises after switching tenants.
     return <WorkspaceForm key={workspace.data.id} workspace={workspace.data} />;
 }
 
 function WorkspaceForm({ workspace }: { workspace: import('@/types').Workspace }) {
     const workspaceId = useWorkspaceId();
     const queryClient = useQueryClient();
-
+    const { t } = useI18n();
     const [form, setForm] = useState<Record<string, string>>(() => ({
         name: workspace.name,
         timezone: workspace.timezone,
@@ -192,15 +188,9 @@ function WorkspaceForm({ workspace }: { workspace: import('@/types').Workspace }
         website: workspace.website ?? '',
         industry: workspace.industry ?? '',
     }));
-    const [fallbackMode, setFallbackMode] = useState(
-        () => workspace.settings?.automation?.fallback_mode ?? 'none',
-    );
-    const [fallbackMessage, setFallbackMessage] = useState(
-        () => workspace.settings?.automation?.fallback_message ?? '',
-    );
-    const [allowMultiple, setAllowMultiple] = useState(
-        () => !!workspace.settings?.automation?.allow_multiple,
-    );
+    const [fallbackMode, setFallbackMode] = useState(() => workspace.settings?.automation?.fallback_mode ?? 'none');
+    const [fallbackMessage, setFallbackMessage] = useState(() => workspace.settings?.automation?.fallback_message ?? '');
+    const [allowMultiple, setAllowMultiple] = useState(() => !!workspace.settings?.automation?.allow_multiple);
 
     const save = useMutation({
         mutationFn: () =>
@@ -218,84 +208,73 @@ function WorkspaceForm({ workspace }: { workspace: import('@/types').Workspace }
             } as any),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['workspace', workspaceId] });
-            toast.success('Workspace saved.');
+            toast.success(t('settings.workspace_saved'));
         },
     });
+
+    const textFields = [
+        ['name', t('settings.field_name')],
+        ['website', t('settings.website')],
+        ['industry', t('settings.industry')],
+    ] as const;
 
     return (
         <div className="w-full space-y-6">
             <SettingsHeader
-                title="Workspace"
-                subtitle="Workspace name, locale, and automation defaults"
-                actions={
-                    <Button onClick={() => save.mutate()} loading={save.isPending}>
-                        Save
-                    </Button>
-                }
+                title={t('settings.workspace_title')}
+                subtitle={t('settings.workspace_subtitle')}
+                actions={<Button onClick={() => save.mutate()} loading={save.isPending}>{t('common.save')}</Button>}
             />
 
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-                <h4 className="mb-5 text-base font-semibold text-slate-800">General</h4>
+                <h4 className="mb-5 text-base font-semibold text-slate-800">{t('settings.general')}</h4>
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {(['name', 'website', 'industry'] as const).map((field) => (
+                    {textFields.map(([field, label]) => (
                         <div key={field}>
-                            <Label>{field}</Label>
+                            <Label>{label}</Label>
                             <Input value={form[field] ?? ''} onChange={(e) => setForm({ ...form, [field]: e.target.value })} />
                         </div>
                     ))}
                     <div>
-                        <Label>Timezone</Label>
+                        <Label>{t('settings.timezone')}</Label>
                         <Select value={form.timezone ?? 'UTC'} onChange={(e) => setForm({ ...form, timezone: e.target.value })}>
-                            {['Africa/Cairo', 'Asia/Riyadh', 'Asia/Dubai', 'Europe/London', 'UTC'].map((tz) => (
-                                <option key={tz}>{tz}</option>
-                            ))}
+                            {['Africa/Cairo', 'Asia/Riyadh', 'Asia/Dubai', 'Europe/London', 'UTC'].map((tz) => <option key={tz}>{tz}</option>)}
                         </Select>
                     </div>
                     <div>
-                        <Label>Currency</Label>
+                        <Label>{t('settings.currency')}</Label>
                         <Select value={form.currency ?? 'USD'} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
-                            {['EGP', 'USD', 'SAR', 'AED', 'EUR'].map((c) => (
-                                <option key={c}>{c}</option>
-                            ))}
+                            {['EGP', 'USD', 'SAR', 'AED', 'EUR'].map((c) => <option key={c}>{c}</option>)}
                         </Select>
                     </div>
                     <div>
-                        <Label>Locale</Label>
+                        <Label>{t('settings.locale')}</Label>
                         <Select value={form.locale ?? 'en'} onChange={(e) => setForm({ ...form, locale: e.target.value })}>
-                            <option value="en">English</option>
-                            <option value="ar">العربية</option>
+                            <option value="en">{t('settings.language_en')}</option>
+                            <option value="ar">{t('settings.language_ar')}</option>
                         </Select>
                     </div>
                 </div>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-                <h4 className="mb-5 text-base font-semibold text-slate-800">Automation behaviour</h4>
+                <h4 className="mb-5 text-base font-semibold text-slate-800">{t('settings.automation_behaviour')}</h4>
                 <div className="grid gap-5 lg:grid-cols-2">
                     <label className="flex items-start gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-4 text-[15px] text-slate-600">
-                        <input
-                            type="checkbox"
-                            className="mt-0.5"
-                            checked={allowMultiple}
-                            onChange={(e) => setAllowMultiple(e.target.checked)}
-                        />
-                        <span>Allow multiple matching automations (default: highest priority only)</span>
+                        <input type="checkbox" className="mt-0.5" checked={allowMultiple} onChange={(e) => setAllowMultiple(e.target.checked)} />
+                        <span>{t('settings.allow_multiple')}</span>
                     </label>
                     <div>
-                        <Label>Fallback when no automation matches</Label>
+                        <Label>{t('settings.fallback_label')}</Label>
                         <Select value={fallbackMode} onChange={(e) => setFallbackMode(e.target.value)}>
-                            <option value="none">Do nothing</option>
-                            <option value="message">Send fallback message</option>
+                            <option value="none">{t('settings.fallback_none')}</option>
+                            <option value="message">{t('settings.fallback_message_option')}</option>
                         </Select>
                     </div>
                     {fallbackMode === 'message' && (
                         <div className="lg:col-span-2">
-                            <Label>Fallback message</Label>
-                            <Input
-                                value={fallbackMessage}
-                                onChange={(e) => setFallbackMessage(e.target.value)}
-                                placeholder="لم أفهم طلبك. اختر من الخيارات التالية."
-                            />
+                            <Label>{t('settings.fallback_message')}</Label>
+                            <Input value={fallbackMessage} onChange={(e) => setFallbackMessage(e.target.value)} placeholder="لم أفهم طلبك. اختر من الخيارات التالية." />
                         </div>
                     )}
                 </div>
@@ -308,81 +287,41 @@ function WhatsAppTab() {
     const workspaceId = useWorkspaceId();
     const queryClient = useQueryClient();
     const { t, statusLabel } = useI18n();
-
-    const accounts = useQuery({
-        queryKey: ['wa-accounts', workspaceId],
-        queryFn: async () => (await whatsappApi.accounts(workspaceId)).data,
-    });
-
-    const signupConfig = useQuery({
-        queryKey: ['meta-signup-config', workspaceId],
-        queryFn: async () => (await whatsappApi.embeddedSignupConfig(workspaceId)).data,
-    });
-
+    const accounts = useQuery({ queryKey: ['wa-accounts', workspaceId], queryFn: async () => (await whatsappApi.accounts(workspaceId)).data });
+    const signupConfig = useQuery({ queryKey: ['meta-signup-config', workspaceId], queryFn: async () => (await whatsappApi.embeddedSignupConfig(workspaceId)).data });
     const connectFake = useMutation({
         mutationFn: () => whatsappApi.connectFake(workspaceId),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wa-accounts', workspaceId] }),
     });
-
     const disconnect = useMutation({
         mutationFn: (id: number) => whatsappApi.disconnect(workspaceId, id),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['wa-accounts', workspaceId] }),
     });
-
-    // The synced templates live on another page, so nothing here would change.
     const sync = useMutation({
         mutationFn: (id: number) => whatsappApi.syncTemplates(workspaceId, id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['templates', workspaceId] });
-            toast.success('Templates synced.');
+            toast.success(t('settings.templates_synced'));
         },
     });
-
-    // Embedded Signup hands off to a Meta-hosted dialog that only loads on the
-    // registered production domain, so the button cannot do anything here.
     const embeddedSignup = signupConfig.data?.enabled === true;
 
     return (
         <div className="w-full space-y-5">
             <SettingsHeader
                 title={t('settings.whatsapp')}
-                subtitle="Connected numbers and messaging quality"
-                actions={
-                    embeddedSignup ? (
-                        <Button disabled>{t('settings.connect_whatsapp')}</Button>
-                    ) : (
-                        <Button onClick={() => connectFake.mutate()} loading={connectFake.isPending}>
-                            {t('settings.connect_whatsapp')} (sandbox)
-                        </Button>
-                    )
-                }
+                subtitle={t('settings.connected_numbers_subtitle')}
+                actions={embeddedSignup ? <Button disabled>{t('settings.connect_whatsapp')}</Button> : (
+                    <Button onClick={() => connectFake.mutate()} loading={connectFake.isPending}>{t('settings.connect_whatsapp')} ({t('settings.sandbox')})</Button>
+                )}
             />
-
-            {embeddedSignup && (
-                <Alert tone="info" title={t('settings.embedded_signup_title')}>
-                    {t('settings.embedded_signup_desc')}
-                </Alert>
-            )}
-
+            {embeddedSignup && <Alert tone="info" title={t('settings.embedded_signup_title')}>{t('settings.embedded_signup_desc')}</Alert>}
             {signupConfig.isError && (
-                <Alert
-                    tone="danger"
-                    title={t('settings.signup_config_failed')}
-                    action={
-                        <Button size="sm" variant="secondary" onClick={() => signupConfig.refetch()}>
-                            {t('common.retry')}
-                        </Button>
-                    }
-                >
+                <Alert tone="danger" title={t('settings.signup_config_failed')} action={<Button size="sm" variant="secondary" onClick={() => signupConfig.refetch()}>{t('common.retry')}</Button>}>
                     {t('settings.signup_config_failed_desc')}
                 </Alert>
             )}
-
-            {accounts.isError ? (
-                <QueryError onRetry={() => accounts.refetch()} />
-            ) : accounts.isLoading ? (
-                <Spinner />
-            ) : (
+            {accounts.isError ? <QueryError onRetry={() => accounts.refetch()} /> : accounts.isLoading ? <Spinner /> : (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {(accounts.data ?? []).map((account) => (
                         <div key={account.id} className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-card">
@@ -391,35 +330,21 @@ function WhatsAppTab() {
                                 <p className="mt-1 text-sm text-slate-500">{account.verified_name}</p>
                                 <div className="mt-2 flex flex-wrap gap-2">
                                     <Badge color={statusColor(account.status)}>{statusLabel(account.status)}</Badge>
-                                    {account.quality_rating && <Badge color="green">Quality: {account.quality_rating}</Badge>}
+                                    {account.quality_rating && <Badge color="green">{t('wa_settings.quality', { value: account.quality_rating })}</Badge>}
                                     {account.messaging_limit && <Badge color="blue">{account.messaging_limit}</Badge>}
                                 </div>
                             </div>
                             <div className="mt-4 flex flex-wrap gap-2">
-                                <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    loading={sync.isPending && sync.variables === account.id}
-                                    onClick={() => sync.mutate(account.id)}
-                                >
-                                    Sync templates
-                                </Button>
+                                <Button size="sm" variant="secondary" loading={sync.isPending && sync.variables === account.id} onClick={() => sync.mutate(account.id)}>{t('wa_settings.sync_templates')}</Button>
                                 <Button
                                     size="sm"
                                     variant="danger"
                                     loading={disconnect.isPending && disconnect.variables === account.id}
                                     onClick={async () => {
-                                        const confirmed = await confirmDialog({
-                                            title: t('settings.disconnect_title'),
-                                            description: t('settings.disconnect_desc'),
-                                            confirmLabel: t('settings.disconnect'),
-                                            destructive: true,
-                                        });
+                                        const confirmed = await confirmDialog({ title: t('settings.disconnect_title'), description: t('settings.disconnect_desc'), confirmLabel: t('settings.disconnect'), destructive: true });
                                         if (confirmed) disconnect.mutate(account.id);
                                     }}
-                                >
-                                    {t('settings.disconnect')}
-                                </Button>
+                                >{t('settings.disconnect')}</Button>
                             </div>
                         </div>
                     ))}
@@ -436,35 +361,26 @@ function MembersTab() {
     const [inviteOpen, setInviteOpen] = useState(false);
     const [email, setEmail] = useState('');
     const [role, setRole] = useState('agent');
-
-    const members = useQuery({
-        queryKey: ['members', workspaceId],
-        queryFn: async () => (await workspacesApi.members(workspaceId)).data,
-    });
-    const invitations = useQuery({
-        queryKey: ['invitations', workspaceId],
-        queryFn: async () => (await workspacesApi.invitations(workspaceId)).data,
-    });
+    const members = useQuery({ queryKey: ['members', workspaceId], queryFn: async () => (await workspacesApi.members(workspaceId)).data });
+    const invitations = useQuery({ queryKey: ['invitations', workspaceId], queryFn: async () => (await workspacesApi.invitations(workspaceId)).data });
+    const roleLabel = (value: string) => t(`settings.role_${value}`);
 
     const invite = useMutation({
         mutationFn: () => workspacesApi.invite(workspaceId, { email, role }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['invitations', workspaceId] });
             setInviteOpen(false);
-            toast.success('Invitation sent.', email);
+            toast.success(t('settings.invitation_sent'), email);
             setEmail('');
         },
     });
-
     const updateRole = useMutation({
-        mutationFn: ({ userId, newRole }: { userId: number; newRole: string }) =>
-            workspacesApi.updateMemberRole(workspaceId, userId, newRole),
+        mutationFn: ({ userId, newRole }: { userId: number; newRole: string }) => workspacesApi.updateMemberRole(workspaceId, userId, newRole),
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: ['members', workspaceId] });
-            toast.success('Role updated.', variables.newRole);
+            toast.success(t('settings.role_updated'), roleLabel(variables.newRole));
         },
     });
-
     const removeMember = useMutation({
         mutationFn: (userId: number) => workspacesApi.removeMember(workspaceId, userId),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ['members', workspaceId] }),
@@ -472,58 +388,23 @@ function MembersTab() {
 
     return (
         <div className="w-full space-y-5">
-            <SettingsHeader
-                title="Members"
-                subtitle="Invite teammates and manage roles"
-                actions={<Button onClick={() => setInviteOpen(true)}>Invite member</Button>}
-            />
-
-            {members.isError ? (
-                <QueryError onRetry={() => members.refetch()} />
-            ) : members.isLoading ? (
-                <TableSkeleton rows={4} columns={4} />
-            ) : (
+            <SettingsHeader title={t('settings.members')} subtitle={t('settings.members_subtitle')} actions={<Button onClick={() => setInviteOpen(true)}>{t('settings.invite_member')}</Button>} />
+            {members.isError ? <QueryError onRetry={() => members.refetch()} /> : members.isLoading ? <TableSkeleton rows={4} columns={4} /> : (
                 <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
                     <div className="hidden grid-cols-[minmax(0,1.4fr)_140px_160px_120px] gap-4 border-b border-slate-100 bg-slate-50 px-5 py-3 text-xs font-semibold tracking-wide text-slate-500 uppercase sm:grid">
-                        <span>Member</span>
-                        <span>Status</span>
-                        <span>Role</span>
-                        <span className="text-end">Actions</span>
+                        <span>{t('common.member')}</span><span>{t('common.status')}</span><span>{t('common.role')}</span><span className="text-end">{t('common.actions')}</span>
                     </div>
                     <div className="divide-y divide-slate-100">
                         {members.data?.map((member: any) => (
-                            <div
-                                key={member.id}
-                                className="grid grid-cols-1 items-center gap-4 px-5 py-4 sm:grid-cols-[minmax(0,1.4fr)_140px_160px_120px] sm:gap-4"
-                            >
+                            <div key={member.id} className="grid grid-cols-1 items-center gap-4 px-5 py-4 sm:grid-cols-[minmax(0,1.4fr)_140px_160px_120px] sm:gap-4">
                                 <div className="flex min-w-0 items-center gap-3.5">
                                     <Avatar name={member.name} size={11} />
-                                    <div className="min-w-0">
-                                        <p className="truncate text-base font-semibold text-slate-900">{member.name}</p>
-                                        <p className="truncate text-sm text-slate-500">{member.email}</p>
-                                    </div>
+                                    <div className="min-w-0"><p className="truncate text-base font-semibold text-slate-900">{member.name}</p><p className="truncate text-sm text-slate-500">{member.email}</p></div>
                                 </div>
+                                <div>{member.agent_profile ? <Badge color={statusColor(member.agent_profile.status)}>{statusLabel(member.agent_profile.status)}</Badge> : <span className="text-sm text-slate-400">—</span>}</div>
                                 <div>
-                                    {member.agent_profile ? (
-                                        <Badge color={statusColor(member.agent_profile.status)}>
-                                            {statusLabel(member.agent_profile.status)}
-                                        </Badge>
-                                    ) : (
-                                        <span className="text-sm text-slate-400">—</span>
-                                    )}
-                                </div>
-                                <div>
-                                    <Select
-                                        value={member.role}
-                                        disabled={member.role === 'owner'}
-                                        onChange={(e) => updateRole.mutate({ userId: member.id, newRole: e.target.value })}
-                                        className="w-full !py-2 text-sm"
-                                    >
-                                        {['owner', 'admin', 'manager', 'agent', 'viewer'].map((r) => (
-                                            <option key={r} value={r} disabled={r === 'owner'}>
-                                                {r}
-                                            </option>
-                                        ))}
+                                    <Select value={member.role} disabled={member.role === 'owner'} onChange={(e) => updateRole.mutate({ userId: member.id, newRole: e.target.value })} className="w-full !py-2 text-sm">
+                                        {['owner', 'admin', 'manager', 'agent', 'viewer'].map((r) => <option key={r} value={r} disabled={r === 'owner'}>{roleLabel(r)}</option>)}
                                     </Select>
                                 </div>
                                 <div className="sm:text-end">
@@ -533,78 +414,36 @@ function MembersTab() {
                                             variant="ghost"
                                             loading={removeMember.isPending && removeMember.variables === member.id}
                                             onClick={async () => {
-                                                const confirmed = await confirmDialog({
-                                                    title: `Remove ${member.name} from this workspace?`,
-                                                    description:
-                                                        'They lose access immediately. Conversations they handled stay in the workspace.',
-                                                    confirmLabel: 'Remove',
-                                                    destructive: true,
-                                                });
+                                                const confirmed = await confirmDialog({ title: t('settings.remove_member_title', { name: member.name }), description: t('settings.remove_member_desc'), confirmLabel: t('common.remove'), destructive: true });
                                                 if (confirmed) removeMember.mutate(member.id);
                                             }}
-                                        >
-                                            Remove
-                                        </Button>
-                                    ) : (
-                                        <span className="text-sm text-slate-400">Owner</span>
-                                    )}
+                                        >{t('common.remove')}</Button>
+                                    ) : <span className="text-sm text-slate-400">{t('common.owner')}</span>}
                                 </div>
                             </div>
                         ))}
                     </div>
                 </div>
             )}
-
-            {invitations.isError && (
-                <Alert
-                    tone="danger"
-                    title="Pending invitations could not be loaded."
-                    action={
-                        <Button size="sm" variant="secondary" onClick={() => invitations.refetch()}>
-                            {t('common.retry')}
-                        </Button>
-                    }
-                />
-            )}
-
+            {invitations.isError && <Alert tone="danger" title={t('settings.pending_invitations_failed')} action={<Button size="sm" variant="secondary" onClick={() => invitations.refetch()}>{t('common.retry')}</Button>} />}
             {(invitations.data ?? []).length > 0 && (
                 <div className="space-y-3">
-                    <h4 className="text-base font-semibold text-slate-800">Pending invitations</h4>
+                    <h4 className="text-base font-semibold text-slate-800">{t('settings.pending_invitations')}</h4>
                     <div className="grid gap-3 md:grid-cols-2">
                         {invitations.data!.map((invitation: any) => (
-                            <div
-                                key={invitation.id}
-                                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4"
-                            >
-                                <span className="flex flex-wrap items-center gap-2 text-[15px] text-slate-800">
-                                    {invitation.email} <Badge color="yellow">{invitation.role}</Badge>
-                                </span>
-                                <code className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600">
-                                    token: {invitation.token}
-                                </code>
+                            <div key={invitation.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4">
+                                <span className="flex flex-wrap items-center gap-2 text-[15px] text-slate-800">{invitation.email} <Badge color="yellow">{roleLabel(invitation.role)}</Badge></span>
+                                <code className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600">{t('settings.invitation_token')}: {invitation.token}</code>
                             </div>
                         ))}
                     </div>
                 </div>
             )}
-
-            <Modal open={inviteOpen} onClose={() => setInviteOpen(false)} title="Invite member">
+            <Modal open={inviteOpen} onClose={() => setInviteOpen(false)} title={t('settings.invite_member')}>
                 <div className="space-y-3">
-                    <div>
-                        <Label>Email</Label>
-                        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                    </div>
-                    <div>
-                        <Label>Role</Label>
-                        <Select value={role} onChange={(e) => setRole(e.target.value)}>
-                            {['admin', 'manager', 'agent', 'viewer'].map((r) => (
-                                <option key={r}>{r}</option>
-                            ))}
-                        </Select>
-                    </div>
-                    <Button onClick={() => invite.mutate()} disabled={!email} loading={invite.isPending} className="w-full">
-                        Send invitation
-                    </Button>
+                    <div><Label>{t('common.email')}</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                    <div><Label>{t('common.role')}</Label><Select value={role} onChange={(e) => setRole(e.target.value)}>{['admin', 'manager', 'agent', 'viewer'].map((r) => <option key={r} value={r}>{roleLabel(r)}</option>)}</Select></div>
+                    <Button onClick={() => invite.mutate()} disabled={!email} loading={invite.isPending} className="w-full">{t('settings.send_invitation')}</Button>
                 </div>
             </Modal>
         </div>
@@ -620,12 +459,9 @@ function TeamsTab() {
     const [name, setName] = useState('');
     const [strategy, setStrategy] = useState('round_robin');
     const [memberIds, setMemberIds] = useState<number[]>([]);
-
     const teams = useQuery({ queryKey: ['teams', workspaceId], queryFn: async () => (await agentsApi.teams(workspaceId)).data });
-    const members = useQuery({
-        queryKey: ['members', workspaceId],
-        queryFn: async () => (await workspacesApi.members(workspaceId)).data,
-    });
+    const members = useQuery({ queryKey: ['members', workspaceId], queryFn: async () => (await workspacesApi.members(workspaceId)).data });
+    const strategyLabel = (value: string) => value === 'least_active' ? t('settings.strategy_least_active') : t('settings.strategy_round_robin');
 
     const save = useMutation({
         mutationFn: () => {
@@ -638,114 +474,49 @@ function TeamsTab() {
             toast.success(editing ? t('settings.edit_team') : t('settings.create_team'), name);
         },
     });
-
-    const remove = useMutation({
-        mutationFn: (id: number) => agentsApi.removeTeam(workspaceId, id),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teams', workspaceId] }),
-    });
-
+    const remove = useMutation({ mutationFn: (id: number) => agentsApi.removeTeam(workspaceId, id), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['teams', workspaceId] }) });
     const openModal = (team?: any) => {
-        setEditing(team ?? null);
-        setName(team?.name ?? '');
-        setStrategy(team?.assignment_strategy ?? 'round_robin');
-        setMemberIds(team?.members?.map((m: any) => m.id) ?? []);
-        setModalOpen(true);
+        setEditing(team ?? null); setName(team?.name ?? ''); setStrategy(team?.assignment_strategy ?? 'round_robin'); setMemberIds(team?.members?.map((m: any) => m.id) ?? []); setModalOpen(true);
     };
 
     return (
         <div className="w-full space-y-5">
-            <SettingsHeader
-                title={t('settings.teams')}
-                subtitle={t('settings.teams_subtitle')}
-                actions={<Button onClick={() => openModal()}>{t('settings.create_team')}</Button>}
-            />
-
-            {teams.isError && <QueryError onRetry={() => teams.refetch()} />}
-            {teams.isLoading && <Spinner />}
-
+            <SettingsHeader title={t('settings.teams')} subtitle={t('settings.teams_subtitle')} actions={<Button onClick={() => openModal()}>{t('settings.create_team')}</Button>} />
+            {teams.isError && <QueryError onRetry={() => teams.refetch()} />}{teams.isLoading && <Spinner />}
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {teams.data?.map((team) => (
                     <div key={team.id} className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-panel p-5 shadow-card">
-                        <div>
-                            <p className="text-lg font-semibold text-slate-900">{team.name}</p>
-                            <p className="mt-1.5 text-sm text-slate-500">
-                                {team.assignment_strategy} · {t('settings.members_count', { count: team.members?.length ?? 0 })}
-                            </p>
-                            {team.members && team.members.length > 0 && (
-                                <p className="mt-2 line-clamp-2 text-sm text-slate-400">
-                                    {team.members.map((m) => m.name).join(', ')}
-                                </p>
-                            )}
-                        </div>
+                        <div><p className="text-lg font-semibold text-slate-900">{team.name}</p><p className="mt-1.5 text-sm text-slate-500">{strategyLabel(team.assignment_strategy)} · {t('settings.members_count', { count: team.members?.length ?? 0 })}</p>{team.members && team.members.length > 0 && <p className="mt-2 line-clamp-2 text-sm text-slate-400">{team.members.map((m) => m.name).join(', ')}</p>}</div>
                         <div className="mt-5 flex gap-2">
-                            <Button size="sm" variant="secondary" onClick={() => openModal(team)}>
-                                {t('settings.edit')}
-                            </Button>
+                            <Button size="sm" variant="secondary" onClick={() => openModal(team)}>{t('settings.edit')}</Button>
                             <Button
                                 size="sm"
                                 variant="ghost"
                                 loading={remove.isPending && remove.variables === team.id}
                                 onClick={async () => {
-                                    const confirmed = await confirmDialog({
-                                        title: `Delete the team "${team.name}"?`,
-                                        description:
-                                            'Conversations already assigned to its members stay, but routing rules pointing at this team stop working.',
-                                        confirmLabel: t('settings.delete_team'),
-                                        destructive: true,
-                                    });
+                                    const confirmed = await confirmDialog({ title: t('settings.team_delete_title', { name: team.name }), description: t('settings.team_delete_desc'), confirmLabel: t('settings.delete_team'), destructive: true });
                                     if (confirmed) remove.mutate(team.id);
                                 }}
-                            >
-                                {t('settings.delete_team')}
-                            </Button>
+                            >{t('settings.delete_team')}</Button>
                         </div>
                     </div>
                 ))}
             </div>
-
             <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? t('settings.edit_team') : t('settings.create_team')}>
                 <div className="space-y-3">
+                    <div><Label>{t('settings.team_name')}</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('settings.team_name_placeholder')} /></div>
+                    <div><Label>{t('settings.assignment_strategy')}</Label><Select value={strategy} onChange={(e) => setStrategy(e.target.value)}><option value="round_robin">{t('settings.strategy_round_robin')}</option><option value="least_active">{t('settings.strategy_least_active')}</option></Select></div>
                     <div>
-                        <Label>Name</Label>
-                        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Sales" />
-                    </div>
-                    <div>
-                        <Label>Assignment strategy</Label>
-                        <Select value={strategy} onChange={(e) => setStrategy(e.target.value)}>
-                            <option value="round_robin">Round robin</option>
-                            <option value="least_active">Least active</option>
-                        </Select>
-                    </div>
-                    <div>
-                        <Label>Members</Label>
-                        {members.isError && (
-                            <div className="mb-2">
-                                <Alert tone="danger" title="Members could not be loaded." />
-                            </div>
-                        )}
+                        <Label>{t('common.members')}</Label>
+                        {members.isError && <div className="mb-2"><Alert tone="danger" title={t('settings.members_failed')} /></div>}
                         <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-slate-200 p-2">
                             {members.isLoading && <Spinner className="!p-3" />}
                             {members.data?.map((member: any) => (
-                                <label key={member.id} className="flex items-center gap-2 text-sm">
-                                    <input
-                                        type="checkbox"
-                                        checked={memberIds.includes(member.id)}
-                                        onChange={(e) =>
-                                            setMemberIds(
-                                                e.target.checked
-                                                    ? [...memberIds, member.id]
-                                                    : memberIds.filter((id) => id !== member.id),
-                                            )
-                                        }
-                                    />
-                                    {member.name}
-                                </label>
+                                <label key={member.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={memberIds.includes(member.id)} onChange={(e) => setMemberIds(e.target.checked ? [...memberIds, member.id] : memberIds.filter((id) => id !== member.id))} />{member.name}</label>
                             ))}
                         </div>
                     </div>
-                    <Button onClick={() => save.mutate()} disabled={!name} loading={save.isPending} className="w-full">
-                        Save
-                    </Button>
+                    <Button onClick={() => save.mutate()} disabled={!name} loading={save.isPending} className="w-full">{t('common.save')}</Button>
                 </div>
             </Modal>
         </div>
@@ -755,91 +526,33 @@ function TeamsTab() {
 function FieldsTab() {
     const workspaceId = useWorkspaceId();
     const queryClient = useQueryClient();
+    const { t } = useI18n();
     const [name, setName] = useState('');
     const [type, setType] = useState('text');
-
-    const fields = useQuery({
-        queryKey: ['custom-fields', workspaceId],
-        queryFn: async () => (await customFieldsApi.list(workspaceId)).data,
-    });
-
+    const fields = useQuery({ queryKey: ['custom-fields', workspaceId], queryFn: async () => (await customFieldsApi.list(workspaceId)).data });
+    const fieldTypeLabel = (value: string) => t(`settings.field_type_${value}`);
     const create = useMutation({
         mutationFn: () => customFieldsApi.create(workspaceId, { name, type }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['custom-fields', workspaceId] });
-            toast.success('Custom field created.', name);
-            setName('');
-        },
+        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['custom-fields', workspaceId] }); toast.success(t('settings.field_created'), name); setName(''); },
     });
-
-    const remove = useMutation({
-        mutationFn: (id: number) => customFieldsApi.remove(workspaceId, id),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['custom-fields', workspaceId] }),
-    });
+    const remove = useMutation({ mutationFn: (id: number) => customFieldsApi.remove(workspaceId, id), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['custom-fields', workspaceId] }) });
 
     return (
         <div className="w-full space-y-5">
-            <SettingsHeader title="Custom fields" subtitle="Extra attributes stored on contacts" />
+            <SettingsHeader title={t('settings.fields')} subtitle={t('settings.fields_subtitle')} />
             <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-card sm:flex-row sm:items-center">
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Field name (e.g. Budget)" className="flex-1" />
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('settings.field_name_placeholder')} className="flex-1" />
                 <Select value={type} onChange={(e) => setType(e.target.value)} className="sm:w-48">
-                    {['text', 'textarea', 'number', 'date', 'datetime', 'boolean', 'select', 'multi_select', 'email', 'phone'].map(
-                        (fieldType) => (
-                            <option key={fieldType}>{fieldType}</option>
-                        ),
-                    )}
+                    {['text', 'textarea', 'number', 'date', 'datetime', 'boolean', 'select', 'multi_select', 'email', 'phone'].map((fieldType) => <option key={fieldType} value={fieldType}>{fieldTypeLabel(fieldType)}</option>)}
                 </Select>
-                <Button onClick={() => create.mutate()} disabled={!name} loading={create.isPending}>
-                    Add
-                </Button>
+                <Button onClick={() => create.mutate()} disabled={!name} loading={create.isPending}>{t('common.add')}</Button>
             </div>
-            {fields.isError ? (
-                <QueryError onRetry={() => fields.refetch()} />
-            ) : fields.isLoading ? (
-                <TableSkeleton rows={4} columns={4} />
-            ) : (
+            {fields.isError ? <QueryError onRetry={() => fields.refetch()} /> : fields.isLoading ? <TableSkeleton rows={4} columns={4} /> : (
                 <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-card">
-                    <table className="w-full text-[15px]">
-                        <thead className="bg-slate-50 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-                            <tr>
-                                <th className="px-5 py-3.5 text-start">Name</th>
-                                <th className="px-5 py-3.5 text-start">Key</th>
-                                <th className="px-5 py-3.5 text-start">Type</th>
-                                <th className="px-5 py-3.5 text-end">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {fields.data?.map((field) => (
-                                <tr key={field.id} className="border-t border-slate-100">
-                                    <td className="px-5 py-4 font-semibold text-slate-900">{field.name}</td>
-                                    <td className="px-5 py-4">
-                                        <code className="rounded-lg bg-slate-100 px-2 py-1 text-xs">custom.{field.key}</code>
-                                    </td>
-                                    <td className="px-5 py-4">
-                                        <Badge color="slate">{field.type}</Badge>
-                                    </td>
-                                    <td className="px-5 py-4 text-end">
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            loading={remove.isPending && remove.variables === field.id}
-                                            onClick={async () => {
-                                                const confirmed = await confirmDialog({
-                                                    title: `Delete the custom field "${field.name}"?`,
-                                                    description:
-                                                        'Every value stored on your contacts for this field is deleted permanently. This cannot be undone.',
-                                                    confirmLabel: 'Delete',
-                                                    destructive: true,
-                                                });
-                                                if (confirmed) remove.mutate(field.id);
-                                            }}
-                                        >
-                                            Delete
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
+                    <table className="w-full text-[15px]"><thead className="bg-slate-50 text-xs font-semibold tracking-wide text-slate-500 uppercase"><tr><th className="px-5 py-3.5 text-start">{t('common.name')}</th><th className="px-5 py-3.5 text-start">{t('common.key')}</th><th className="px-5 py-3.5 text-start">{t('common.type')}</th><th className="px-5 py-3.5 text-end">{t('common.actions')}</th></tr></thead>
+                        <tbody>{fields.data?.map((field) => (
+                            <tr key={field.id} className="border-t border-slate-100"><td className="px-5 py-4 font-semibold text-slate-900">{field.name}</td><td className="px-5 py-4"><code className="rounded-lg bg-slate-100 px-2 py-1 text-xs">custom.{field.key}</code></td><td className="px-5 py-4"><Badge color="slate">{fieldTypeLabel(field.type)}</Badge></td><td className="px-5 py-4 text-end"><Button size="sm" variant="ghost" loading={remove.isPending && remove.variables === field.id} onClick={async () => { const confirmed = await confirmDialog({ title: t('settings.field_delete_title', { name: field.name }), description: t('settings.field_delete_desc'), confirmLabel: t('common.delete'), destructive: true }); if (confirmed) remove.mutate(field.id); }}>{t('common.delete')}</Button></td></tr>
+                        ))}</tbody>
                     </table>
                 </div>
             )}
@@ -850,64 +563,32 @@ function FieldsTab() {
 function TagsTab() {
     const workspaceId = useWorkspaceId();
     const queryClient = useQueryClient();
+    const { t } = useI18n();
     const [name, setName] = useState('');
     const [color, setColor] = useState('#22c55e');
-
     const tags = useQuery({ queryKey: ['tags', workspaceId], queryFn: async () => (await tagsApi.list(workspaceId)).data });
-
-    const create = useMutation({
-        mutationFn: () => tagsApi.create(workspaceId, { name, color }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['tags', workspaceId] });
-            toast.success('Tag created.', name);
-            setName('');
-        },
-    });
-
-    const remove = useMutation({
-        mutationFn: (id: number) => tagsApi.remove(workspaceId, id),
-        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tags', workspaceId] }),
-    });
+    const create = useMutation({ mutationFn: () => tagsApi.create(workspaceId, { name, color }), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['tags', workspaceId] }); toast.success(t('settings.tag_created'), name); setName(''); } });
+    const remove = useMutation({ mutationFn: (id: number) => tagsApi.remove(workspaceId, id), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tags', workspaceId] }) });
 
     return (
         <div className="w-full space-y-5">
-            <SettingsHeader title="Tags" subtitle="Label contacts for filtering and campaigns" />
+            <SettingsHeader title={t('settings.tags')} subtitle={t('settings.tags_subtitle')} />
             <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-card sm:flex-row sm:items-center">
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tag name" className="flex-1" />
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('settings.tag_name_placeholder')} className="flex-1" />
                 <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-11 w-14 rounded-xl border border-slate-300" />
-                <Button onClick={() => create.mutate()} disabled={!name} loading={create.isPending}>
-                    Add
-                </Button>
+                <Button onClick={() => create.mutate()} disabled={!name} loading={create.isPending}>{t('common.add')}</Button>
             </div>
-            {tags.isError && <QueryError onRetry={() => tags.refetch()} />}
-            {tags.isLoading && <Spinner />}
+            {tags.isError && <QueryError onRetry={() => tags.refetch()} />}{tags.isLoading && <Spinner />}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {tags.data?.map((tag) => (
-                    <div
-                        key={tag.id}
-                        className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-card"
-                    >
-                        <span className="flex items-center gap-2.5 text-[15px] font-semibold" style={{ color: tag.color }}>
-                            <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: tag.color }} />
-                            {tag.name}
-                            <span className="text-sm font-normal text-slate-400">({tag.contacts_count ?? 0})</span>
-                        </span>
+                    <div key={tag.id} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-card">
+                        <span className="flex items-center gap-2.5 text-[15px] font-semibold" style={{ color: tag.color }}><span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: tag.color }} />{tag.name}<span className="text-sm font-normal text-slate-400">({tag.contacts_count ?? 0})</span></span>
                         <button
-                            aria-label={`Delete ${tag.name}`}
+                            aria-label={t('settings.tag_delete_label', { name: tag.name })}
                             disabled={remove.isPending && remove.variables === tag.id}
-                            onClick={async () => {
-                                const confirmed = await confirmDialog({
-                                    title: `Delete the tag "${tag.name}"?`,
-                                    description: `It is removed from ${tag.contacts_count ?? 0} contact(s). This cannot be undone.`,
-                                    confirmLabel: 'Delete',
-                                    destructive: true,
-                                });
-                                if (confirmed) remove.mutate(tag.id);
-                            }}
+                            onClick={async () => { const confirmed = await confirmDialog({ title: t('settings.tag_delete_title', { name: tag.name }), description: t('settings.tag_delete_desc', { count: tag.contacts_count ?? 0 }), confirmLabel: t('common.delete'), destructive: true }); if (confirmed) remove.mutate(tag.id); }}
                             className="text-base text-slate-400 hover:text-red-500 disabled:opacity-50"
-                        >
-                            ✕
-                        </button>
+                        >✕</button>
                     </div>
                 ))}
             </div>
@@ -919,118 +600,42 @@ function BillingTab() {
     const workspaceId = useWorkspaceId();
     const queryClient = useQueryClient();
     const { t } = useI18n();
-
-    const summary = useQuery({
-        queryKey: ['billing', workspaceId],
-        queryFn: async () => (await billingApi.summary(workspaceId)).data,
-    });
+    const summary = useQuery({ queryKey: ['billing', workspaceId], queryFn: async () => (await billingApi.summary(workspaceId)).data });
     const plans = useQuery({ queryKey: ['plans'], queryFn: async () => (await billingApi.plans()).data });
-
-    const subscribe = useMutation({
-        mutationFn: (planId: number) => billingApi.subscribe(workspaceId, planId),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['billing', workspaceId] });
-            toast.success('Subscription updated.');
-        },
-    });
-
+    const subscribe = useMutation({ mutationFn: (planId: number) => billingApi.subscribe(workspaceId, planId), onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['billing', workspaceId] }); toast.success(t('settings.subscription_updated')); } });
     if (summary.isError) return <QueryError onRetry={() => summary.refetch()} />;
     if (summary.isLoading) return <Spinner />;
 
     const platform = summary.data?.platform;
     const price = (cents: number, currency: string) => `${(cents / 100).toLocaleString()} ${currency}`;
+    const featureLabel = (key: string) => { const translationKey = `billing.feature.${key}`; const value = t(translationKey); return value === translationKey ? key.replaceAll('_', ' ') : value; };
+    const featureValue = (value: unknown) => { const stringValue = String(value); const translationKey = `billing.value.${stringValue}`; const translated = t(translationKey); return translated === translationKey ? stringValue : translated; };
 
     return (
         <div className="w-full space-y-6">
-            <SettingsHeader title={t('settings.billing')} subtitle="Plan, usage limits, and Meta billing note" />
-
+            <SettingsHeader title={t('settings.billing')} subtitle={t('settings.billing_subtitle')} />
             <div className="grid gap-4 lg:grid-cols-3">
-                {/* Platform subscription — OUR revenue */}
                 <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card lg:col-span-2">
                     <h4 className="mb-2 text-base font-bold text-slate-800">{t('billing.platform')}</h4>
                     {platform?.plan ? (
-                        <>
-                            <p className="text-2xl font-semibold text-slate-900">
-                                {platform.plan.name}
-                                <span className="ms-2 text-sm font-normal text-slate-500">
-                                    {price(platform.plan.price_monthly, platform.plan.currency)} / month
-                                </span>
-                            </p>
-                            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
-                                {Object.entries(platform.usage ?? {}).map(([key, value]: [string, any]) => (
-                                    <div key={key} className="rounded-lg bg-slate-50 p-3 text-xs">
-                                        <p className="text-slate-500">{key.replaceAll('_', ' ')}</p>
-                                        <p className="mt-0.5 font-semibold text-slate-800">
-                                            {value.used} / {value.limit === null ? '∞' : value.limit || '—'}
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                        </>
-                    ) : (
-                        <p className="text-sm text-slate-500">No active subscription.</p>
-                    )}
+                        <><p className="text-2xl font-semibold text-slate-900">{platform.plan.name}<span className="ms-2 text-sm font-normal text-slate-500">{price(platform.plan.price_monthly, platform.plan.currency)} {t('settings.per_month')}</span></p>
+                        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">{Object.entries(platform.usage ?? {}).map(([key, value]: [string, any]) => <div key={key} className="rounded-lg bg-slate-50 p-3 text-xs"><p className="text-slate-500">{featureLabel(key)}</p><p className="mt-0.5 font-semibold text-slate-800">{value.used} / {value.limit === null ? '∞' : value.limit || '—'}</p></div>)}</div></>
+                    ) : <p className="text-sm text-slate-500">{t('settings.no_active_subscription')}</p>}
                 </div>
-
-                {/* Meta usage — separate financial concept, NOT platform revenue */}
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
-                    <h4 className="mb-2 text-base font-bold text-amber-800">{t('billing.meta_usage')}</h4>
-                    <p className="text-sm leading-relaxed text-amber-700">
-                        {summary.data?.meta_usage?.note ?? t('billing.meta_note')}
-                    </p>
-                </div>
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6"><h4 className="mb-2 text-base font-bold text-amber-800">{t('billing.meta_usage')}</h4><p className="text-sm leading-relaxed text-amber-700">{summary.data?.meta_usage?.note ?? t('billing.meta_note')}</p></div>
             </div>
-
             <div>
-                <h4 className="mb-4 text-base font-semibold text-slate-800">Plans</h4>
-                {plans.isError && (
-                    <Alert
-                        tone="danger"
-                        title="Plans could not be loaded."
-                        action={
-                            <Button size="sm" variant="secondary" onClick={() => plans.refetch()}>
-                                {t('common.retry')}
-                            </Button>
-                        }
-                    />
-                )}
+                <h4 className="mb-4 text-base font-semibold text-slate-800">{t('settings.plans')}</h4>
+                {plans.isError && <Alert tone="danger" title={t('settings.plans_failed')} action={<Button size="sm" variant="secondary" onClick={() => plans.refetch()}>{t('common.retry')}</Button>} />}
                 {plans.isLoading && <Spinner />}
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {plans.data?.map((plan) => {
-                        const isCurrent = platform?.plan?.id === plan.id;
-                        return (
-                            <div
-                                key={plan.id}
-                                className={clsx(
-                                    'flex flex-col rounded-2xl border bg-white p-6 shadow-card',
-                                    isCurrent ? 'border-brand-500 ring-2 ring-brand-100' : 'border-slate-200',
-                                )}
-                            >
-                                <p className="text-lg font-bold text-slate-900">{plan.name}</p>
-                                <p className="my-2 text-2xl font-semibold">
-                                    {price(plan.price_monthly, plan.currency)}
-                                    <span className="text-sm font-normal text-slate-400">/mo</span>
-                                </p>
-                                <ul className="mb-5 flex-1 space-y-1.5 text-sm text-slate-500">
-                                    {plan.features.map((feature) => (
-                                        <li key={feature.key}>
-                                            {feature.key.replaceAll('_', ' ')}: <b>{feature.value}</b>
-                                        </li>
-                                    ))}
-                                </ul>
-                                <Button
-                                    size="sm"
-                                    variant={isCurrent ? 'secondary' : 'primary'}
-                                    disabled={isCurrent || subscribe.isPending}
-                                    loading={subscribe.isPending && subscribe.variables === plan.id}
-                                    onClick={() => subscribe.mutate(plan.id)}
-                                    className="w-full"
-                                >
-                                    {isCurrent ? t('billing.current_plan') : t('billing.upgrade')}
-                                </Button>
-                            </div>
-                        );
-                    })}
+                    {plans.data?.map((plan) => { const isCurrent = platform?.plan?.id === plan.id; return (
+                        <div key={plan.id} className={clsx('flex flex-col rounded-2xl border bg-white p-6 shadow-card', isCurrent ? 'border-brand-500 ring-2 ring-brand-100' : 'border-slate-200')}>
+                            <p className="text-lg font-bold text-slate-900">{plan.name}</p><p className="my-2 text-2xl font-semibold">{price(plan.price_monthly, plan.currency)}<span className="text-sm font-normal text-slate-400">{t('settings.per_month_short')}</span></p>
+                            <ul className="mb-5 flex-1 space-y-1.5 text-sm text-slate-500">{plan.features.map((feature) => <li key={feature.key}>{featureLabel(feature.key)}: <b>{featureValue(feature.value)}</b></li>)}</ul>
+                            <Button size="sm" variant={isCurrent ? 'secondary' : 'primary'} disabled={isCurrent || subscribe.isPending} loading={subscribe.isPending && subscribe.variables === plan.id} onClick={() => subscribe.mutate(plan.id)} className="w-full">{isCurrent ? t('billing.current_plan') : t('billing.upgrade')}</Button>
+                        </div>
+                    ); })}
                 </div>
             </div>
         </div>
@@ -1039,51 +644,18 @@ function BillingTab() {
 
 function AuditTab() {
     const workspaceId = useWorkspaceId();
-    const { t } = useI18n();
+    const { t, locale } = useI18n();
     const [page, setPage] = useState(1);
-
-    const logs = useQuery({
-        queryKey: ['audit-logs', workspaceId, page],
-        queryFn: async () => (await analyticsApi.auditLogs(workspaceId, page)).data,
-    });
-
+    const logs = useQuery({ queryKey: ['audit-logs', workspaceId, page], queryFn: async () => (await analyticsApi.auditLogs(workspaceId, page)).data });
     return (
         <div className="w-full space-y-5">
-            <SettingsHeader title={t('settings.audit')} subtitle="Recent workspace activity" />
-            {logs.isError ? (
-                <QueryError onRetry={() => logs.refetch()} />
-            ) : logs.isLoading ? (
-                <TableSkeleton rows={6} columns={3} />
-            ) : (
+            <SettingsHeader title={t('settings.audit')} subtitle={t('settings.audit_subtitle')} />
+            {logs.isError ? <QueryError onRetry={() => logs.refetch()} /> : logs.isLoading ? <TableSkeleton rows={6} columns={3} /> : (
                 <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-card">
-                    <table className="w-full text-[15px]">
-                        <thead className="bg-slate-50 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-                            <tr>
-                                <th className="px-5 py-3.5 text-start">Action</th>
-                                <th className="px-5 py-3.5 text-start">User</th>
-                                <th className="px-5 py-3.5 text-start">When</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {logs.data?.items.map((log: any) => (
-                                <tr key={log.id} className="border-t border-slate-100">
-                                    <td className="px-5 py-4">
-                                        <code className="rounded-lg bg-slate-100 px-2 py-1 text-xs">{log.action}</code>
-                                    </td>
-                                    <td className="px-5 py-4 text-slate-700">{log.user?.name ?? 'System'}</td>
-                                    <td className="px-5 py-4 text-sm text-slate-500">{new Date(log.created_at).toLocaleString()}</td>
-                                </tr>
-                            ))}
-                        </tbody>
+                    <table className="w-full text-[15px]"><thead className="bg-slate-50 text-xs font-semibold tracking-wide text-slate-500 uppercase"><tr><th className="px-5 py-3.5 text-start">{t('settings.audit_action')}</th><th className="px-5 py-3.5 text-start">{t('settings.audit_user')}</th><th className="px-5 py-3.5 text-start">{t('settings.audit_when')}</th></tr></thead>
+                        <tbody>{logs.data?.items.map((log: any) => <tr key={log.id} className="border-t border-slate-100"><td className="px-5 py-4"><code className="rounded-lg bg-slate-100 px-2 py-1 text-xs">{log.action}</code></td><td className="px-5 py-4 text-slate-700">{log.user?.name ?? t('common.system')}</td><td className="px-5 py-4 text-sm text-slate-500">{new Date(log.created_at).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US')}</td></tr>)}</tbody>
                     </table>
-                    {logs.data && (
-                        <Pagination
-                            page={logs.data.meta.current_page}
-                            lastPage={logs.data.meta.last_page}
-                            total={logs.data.meta.total}
-                            onChange={setPage}
-                        />
-                    )}
+                    {logs.data && <Pagination page={logs.data.meta.current_page} lastPage={logs.data.meta.last_page} total={logs.data.meta.total} onChange={setPage} />}
                 </div>
             )}
         </div>
@@ -1092,59 +664,27 @@ function AuditTab() {
 
 function ProfileTab() {
     const { user, setUser } = useAuthStore();
+    const { t } = useI18n();
     const [name, setName] = useState(user?.name ?? '');
     const [passwords, setPasswords] = useState({ current_password: '', password: '', password_confirmation: '' });
-
-    const saveProfile = useMutation({
-        mutationFn: () => authApi.updateProfile({ name }),
-        onSuccess: (response) => {
-            setUser({ ...user!, ...response.data.user });
-            toast.success('Profile saved.');
-        },
-    });
-
-    // Failures are surfaced by the global MutationCache error toast.
-    const changePassword = useMutation({
-        mutationFn: () => authApi.changePassword(passwords),
-        onSuccess: () => {
-            setPasswords({ current_password: '', password: '', password_confirmation: '' });
-            toast.success('Password changed.');
-        },
-    });
+    const saveProfile = useMutation({ mutationFn: () => authApi.updateProfile({ name }), onSuccess: (response) => { setUser({ ...user!, ...response.data.user }); toast.success(t('settings.profile_saved')); } });
+    const changePassword = useMutation({ mutationFn: () => authApi.changePassword(passwords), onSuccess: () => { setPasswords({ current_password: '', password: '', password_confirmation: '' }); toast.success(t('settings.password_changed')); } });
+    const passwordLabels = { current_password: t('settings.current_password'), password: t('settings.new_password'), password_confirmation: t('settings.password_confirmation') };
 
     return (
         <div className="w-full space-y-5">
-            <SettingsHeader title="Profile" subtitle="Your account details and password" />
+            <SettingsHeader title={t('settings.profile')} subtitle={t('settings.profile_subtitle')} />
             <div className="grid gap-5 lg:grid-cols-2">
                 <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-                    <h4 className="text-base font-semibold text-slate-800">Account</h4>
-                    <div>
-                        <Label>Name</Label>
-                        <Input value={name} onChange={(e) => setName(e.target.value)} />
-                    </div>
-                    <div>
-                        <Label>Email</Label>
-                        <Input value={user?.email ?? ''} disabled />
-                    </div>
-                    <Button onClick={() => saveProfile.mutate()} loading={saveProfile.isPending}>
-                        Save
-                    </Button>
+                    <h4 className="text-base font-semibold text-slate-800">{t('settings.account')}</h4>
+                    <div><Label>{t('common.name')}</Label><Input value={name} onChange={(e) => setName(e.target.value)} /></div>
+                    <div><Label>{t('common.email')}</Label><Input value={user?.email ?? ''} disabled /></div>
+                    <Button onClick={() => saveProfile.mutate()} loading={saveProfile.isPending}>{t('common.save')}</Button>
                 </div>
                 <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-                    <h4 className="text-base font-semibold text-slate-800">Change password</h4>
-                    {(['current_password', 'password', 'password_confirmation'] as const).map((field) => (
-                        <div key={field}>
-                            <Label>{field.replaceAll('_', ' ')}</Label>
-                            <Input
-                                type="password"
-                                value={passwords[field]}
-                                onChange={(e) => setPasswords({ ...passwords, [field]: e.target.value })}
-                            />
-                        </div>
-                    ))}
-                    <Button onClick={() => changePassword.mutate()} loading={changePassword.isPending}>
-                        Change password
-                    </Button>
+                    <h4 className="text-base font-semibold text-slate-800">{t('settings.change_password')}</h4>
+                    {(['current_password', 'password', 'password_confirmation'] as const).map((field) => <div key={field}><Label>{passwordLabels[field]}</Label><Input type="password" value={passwords[field]} onChange={(e) => setPasswords({ ...passwords, [field]: e.target.value })} /></div>)}
+                    <Button onClick={() => changePassword.mutate()} loading={changePassword.isPending}>{t('settings.change_password')}</Button>
                 </div>
             </div>
         </div>
