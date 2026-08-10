@@ -84,7 +84,21 @@ jobs:
         run: npm run lint
 
       - name: Translation coverage
-        run: npm run i18n:audit
+        id: i18n
+        shell: bash
+        run: |
+          set +e
+          npm run i18n:audit 2>&1 | tee i18n-errors.txt
+          code=${PIPESTATUS[0]}
+          exit "$code"
+
+      - name: Upload translation audit errors
+        if: failure() && steps.i18n.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-errors
+          path: i18n-errors.txt
+          retention-days: 1
 
       - name: TypeScript
         id: typescript
