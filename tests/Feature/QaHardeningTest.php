@@ -12,7 +12,6 @@ use App\Services\Messaging\MessageService;
 use App\Services\Messaging\MessagingManager;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
-use InvalidArgumentException;
 use Mockery\MockInterface;
 
 it('normalizes unsafe API pagination values instead of crashing list endpoints', function () {
@@ -52,7 +51,7 @@ it('blocks the fake messaging provider itself outside safe environments', functi
         config(['whatsapp.allow_fake_accounts' => false]);
 
         expect(fn () => app(MessagingManager::class)->driver('fake'))
-            ->toThrow(InvalidArgumentException::class, 'Fake WhatsApp provider is disabled');
+            ->toThrow(\InvalidArgumentException::class, 'Fake WhatsApp provider is disabled');
     } finally {
         app()->detectEnvironment(fn () => $originalEnvironment);
     }
