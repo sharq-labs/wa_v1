@@ -6,12 +6,15 @@ use App\Models\Contact;
 use App\Models\ContactImport;
 use App\Models\CustomField;
 use App\Models\Tag;
+use App\Models\Workspace;
+use App\Services\Billing\EntitlementsService;
 use App\Services\Contacts\SpreadsheetContactReader;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
@@ -29,7 +32,7 @@ class ProcessContactImport implements ShouldQueue
         $this->onQueue('default');
     }
 
-    public function handle(SpreadsheetContactReader $reader): void
+    public function handle(SpreadsheetContactReader $reader, EntitlementsService $entitlements): void
     {
         $import = ContactImport::query()->with('workspace')->find($this->importId);
         if (! $import || ! in_array($import->status, ['queued', 'processing'], true)) {
@@ -53,6 +56,7 @@ class ProcessContactImport implements ShouldQueue
         $updateExisting = (bool) ($options['update_existing'] ?? true);
         $overwriteEmpty = (bool) ($options['overwrite_empty'] ?? false);
         $accountId = isset($options['whatsapp_account_id']) ? (int) $options['whatsapp_account_id'] : null;
+        $contactLimit = $entitlements->limit($import->workspace, 'contacts', 2000);
         $tagIds = collect($options['tag_ids'] ?? [])->map(fn ($id) => (int) $id)->filter()->unique()->values()->all();
         $tagIds = Tag::query()
             ->where('workspace_id', $import->workspace_id)
@@ -100,12 +104,59 @@ class ProcessContactImport implements ShouldQueue
                         }
                         $counts['updated']++;
                     } else {
-                        $contact = Contact::query()->create($attributes + [
-                            'workspace_id' => $import->workspace_id,
-                            'phone_number' => $phone,
-                            'wa_id' => $phone,
-                        ]);
-                        $counts['imported']++;
+                        // Lock one stable workspace row while checking the count
+                        // and creating the contact. Concurrent imports therefore
+                        // cannot both observe the same remaining plan slot.
+                        $contact = DB::transaction(function () use ($import, $phone, $attributes, $contactLimit) {
+                            Workspace::query()->whereKey($import->workspace_id)->lockForUpdate()->firstOrFail();
+
+                            $existing = Contact::query()
+                                ->where('workspace_id', $import->workspace_id)
+                                ->where(function ($query) use ($phone) {
+                                    $query->where('phone_number', $phone)->orWhere('wa_id', $phone);
+                                })
+                                ->first();
+
+                            if ($existing) {
+                                return $existing;
+                            }
+
+                            if ($contactLimit !== null
+                                && Contact::query()->where('workspace_id', $import->workspace_id)->count() >= $contactLimit) {
+                                return null;
+                            }
+
+                            return Contact::query()->create($attributes + [
+                                'workspace_id' => $import->workspace_id,
+                                'phone_number' => $phone,
+                                'wa_id' => $phone,
+                            ]);
+                        });
+
+                        if (! $contact) {
+                            $counts['skipped']++;
+                            if (count($errors) < 50) {
+                                $errors[] = [
+                                    'row' => $rowNumber,
+                                    'message' => 'Contact skipped because the workspace plan contact limit was reached.',
+                                ];
+                            }
+
+                            continue;
+                        }
+
+                        if ($contact->wasRecentlyCreated) {
+                            $counts['imported']++;
+                        } elseif (! $updateExisting) {
+                            $counts['skipped']++;
+
+                            continue;
+                        } else {
+                            if ($attributes !== []) {
+                                $contact->fill($attributes)->save();
+                            }
+                            $counts['updated']++;
+                        }
                     }
 
                     if ($tagIds !== []) {
