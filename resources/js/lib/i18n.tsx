@@ -6,13 +6,15 @@ import { enExtra } from '@/locales/en-extra';
 import { arExtra } from '@/locales/ar-extra';
 import { enAutomationExtra } from '@/locales/en-automation-extra';
 import { arAutomationExtra } from '@/locales/ar-automation-extra';
+import { enFinalExtra } from '@/locales/en-final-extra';
+import { arFinalExtra } from '@/locales/ar-final-extra';
 
 type Locale = 'en' | 'ar';
 type Dict = Record<string, string>;
 
 export const dictionaries: Record<Locale, Dict> = {
-    en: { ...en, ...enExtra, ...enAutomationExtra },
-    ar: { ...ar, ...arExtra, ...arAutomationExtra },
+    en: { ...en, ...enExtra, ...enAutomationExtra, ...enFinalExtra },
+    ar: { ...ar, ...arExtra, ...arAutomationExtra, ...arFinalExtra },
 };
 
 interface I18nContextValue {
