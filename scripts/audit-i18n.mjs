@@ -4,8 +4,16 @@ import path from 'node:path';
 const root = process.cwd();
 const jsRoot = path.join(root, 'resources', 'js');
 const localeFiles = {
-    en: [path.join(jsRoot, 'locales', 'en.ts'), path.join(jsRoot, 'locales', 'en-extra.ts')],
-    ar: [path.join(jsRoot, 'locales', 'ar.ts'), path.join(jsRoot, 'locales', 'ar-extra.ts')],
+    en: [
+        path.join(jsRoot, 'locales', 'en.ts'),
+        path.join(jsRoot, 'locales', 'en-extra.ts'),
+        path.join(jsRoot, 'locales', 'en-automation-extra.ts'),
+    ],
+    ar: [
+        path.join(jsRoot, 'locales', 'ar.ts'),
+        path.join(jsRoot, 'locales', 'ar-extra.ts'),
+        path.join(jsRoot, 'locales', 'ar-automation-extra.ts'),
+    ],
 };
 
 const read = (file) => fs.readFileSync(file, 'utf8');
@@ -13,9 +21,7 @@ const keyPattern = /^\s*['"]([^'"]+)['"]\s*:/gm;
 const usedKeyPattern = /\bt\(\s*['"]([^'"]+)['"]/g;
 
 function extractKeys(sources) {
-    return new Set(
-        sources.flatMap((source) => [...source.matchAll(keyPattern)].map((match) => match[1])),
-    );
+    return new Set(sources.flatMap((source) => [...source.matchAll(keyPattern)].map((match) => match[1])));
 }
 
 function walk(dir) {
@@ -50,14 +56,11 @@ for (const file of files) {
     }
 }
 
-// Keep this list deliberately focused on user-facing UI surfaces. It catches
-// untranslated English literals without flagging code identifiers, API values,
-// CSS class names, example payloads, or customer-generated content.
-const uiFiles = files.filter((file) =>
-    /resources[\\/]js[\\/](?:pages|components)[\\/]/.test(file),
-);
-
-const englishWords = /\b(?:Add|Back|Cancel|Choose|Close|Confirm|Connect|Create|Delete|Disconnect|Edit|Email|Error|Field|General|Import|Invite|Loading|Member|Members|Message|Name|No|Notification|Notifications|Password|Plan|Plans|Profile|Quality|Refresh|Remove|Retry|Role|Save|Search|Settings|Status|Sync|Tag|Tags|Team|Teams|Template|Templates|Update|User|WhatsApp|Workspace)\b/;
+// Heuristic for user-facing literals. Technical identifiers and customer/API
+// content are intentionally excluded; visible product copy should go through
+// i18n or an explicit bilingual branch.
+const uiFiles = files.filter((file) => /resources[\\/]js[\\/](?:pages|components)[\\/]/.test(file));
+const englishWords = /\b(?:add|actions?|automation|back|body|cancel|choose|close|confirm|connect|create|custom|delete|disconnect|edit|email|error|field|general|import|invite|joined|keywords|loading|mapping|match|member|members|message|mode|name|no|notification|notifications|owner|password|plan|plans|profile|quality|received|refresh|remove|response|retry|role|save|search|settings|specific|status|strategy|sync|tag|tags|target|team|teams|template|templates|update|user|value|variable|whatsapp|workspace)\b/i;
 const ignoredFragments = [
     'Meta Cloud API',
     'WhatsApp Business',
@@ -85,12 +88,11 @@ for (const file of uiFiles) {
     const lines = source.split(/\r?\n/);
 
     lines.forEach((line, index) => {
-        if (line.includes("t('") || line.includes('t("')) return;
+        if (line.includes("t('") || line.includes('t("') || line.includes('t(`')) return;
         if (line.includes("locale === 'ar'") || line.includes("ar ? '") || line.includes('ar ? "')) return;
         if (line.trim().startsWith('//') || line.trim().startsWith('*')) return;
 
         const candidates = [];
-
         for (const match of line.matchAll(/>([^<>{}][^<>{}]*)</g)) candidates.push(match[1]);
         for (const match of line.matchAll(/\b(?:title|subtitle|placeholder|aria-label|description|confirmLabel)=['"]([^'"]+)['"]/g)) candidates.push(match[1]);
         for (const match of line.matchAll(/\btoast\.(?:success|error|warning|info)\(\s*['"]([^'"]+)['"]/g)) candidates.push(match[1]);
@@ -105,8 +107,9 @@ for (const file of uiFiles) {
 }
 
 if (problems.length) {
-    console.error(`i18n audit failed with ${problems.length} issue(s):`);
-    for (const problem of [...new Set(problems)]) console.error(`- ${problem}`);
+    const uniqueProblems = [...new Set(problems)];
+    console.error(`i18n audit failed with ${uniqueProblems.length} issue(s):`);
+    for (const problem of uniqueProblems) console.error(`- ${problem}`);
     process.exit(1);
 }
 
